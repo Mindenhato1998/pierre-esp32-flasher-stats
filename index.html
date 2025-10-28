@@ -1,0 +1,668 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Pierre ESP32 Flasher - Statistics Dashboard</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            background: #0a0a0a;
+            color: #ffffff;
+            min-height: 100vh;
+            margin: 0;
+            padding: 1rem;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+
+        h1 {
+            font-size: 2rem;
+            margin-bottom: 2rem;
+            font-weight: 600;
+            color: #ffffff;
+            text-align: center;
+            text-shadow: 0 2px 4px rgba(0,0,0,0.5);
+        }
+
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 1.5rem;
+            margin-bottom: 2rem;
+        }
+
+        .stat-card {
+            background: #035a75;
+            border: 2px solid #046d8a;
+            box-shadow: 0 4px 20px rgba(3, 90, 117, 0.3);
+            border-radius: 12px;
+            padding: 1.5rem;
+        }
+
+        .stat-card h3 {
+            font-size: 1.2rem;
+            margin-bottom: 1rem;
+            color: #ffffff;
+            border-bottom: 2px solid #046d8a;
+            padding-bottom: 0.5rem;
+        }
+
+        .stat-number {
+            font-size: 2.5rem;
+            font-weight: bold;
+            color: #00ff88;
+            text-shadow: 0 0 10px rgba(0, 255, 136, 0.3);
+            margin-bottom: 0.5rem;
+        }
+
+        .stat-label {
+            color: #cccccc;
+            font-size: 1rem;
+        }
+
+        .devices-section {
+            background: #035a75;
+            border: 2px solid #046d8a;
+            box-shadow: 0 4px 20px rgba(3, 90, 117, 0.3);
+            border-radius: 12px;
+            padding: 1.5rem;
+            margin-bottom: 2rem;
+        }
+
+        .devices-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 1.5rem;
+        }
+
+        .devices-header h2 {
+            font-size: 1.5rem;
+            color: #ffffff;
+        }
+
+        .refresh-btn {
+            background: #00ff88;
+            color: #000;
+            border: none;
+            padding: 0.5rem 1rem;
+            border-radius: 8px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .refresh-btn:hover {
+            background: #00cc6a;
+            transform: translateY(-2px);
+        }
+
+        .search-box {
+            width: 100%;
+            padding: 0.75rem;
+            border: 2px solid #046d8a;
+            border-radius: 8px;
+            background: #0a0a0a;
+            color: #ffffff;
+            font-size: 1rem;
+            margin-bottom: 1rem;
+        }
+
+        .search-box:focus {
+            outline: none;
+            border-color: #00ff88;
+            box-shadow: 0 0 10px rgba(0, 255, 136, 0.3);
+        }
+
+        .devices-table {
+            width: 100%;
+            border-collapse: collapse;
+            overflow-x: auto;
+        }
+
+        .devices-table th,
+        .devices-table td {
+            padding: 1rem;
+            text-align: left;
+            border-bottom: 1px solid #046d8a;
+        }
+
+        .devices-table th {
+            background: #046d8a;
+            font-weight: 600;
+            color: #ffffff;
+            position: sticky;
+            top: 0;
+        }
+
+        .devices-table tr:hover {
+            background: rgba(4, 109, 138, 0.3);
+        }
+
+        .status-indicator {
+            display: inline-block;
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            margin-right: 0.5rem;
+        }
+
+        .status-online {
+            background: #00ff88;
+            box-shadow: 0 0 8px rgba(0, 255, 136, 0.5);
+        }
+
+        .status-offline {
+            background: #ff4444;
+        }
+
+        .event-log {
+            background: #035a75;
+            border: 2px solid #046d8a;
+            box-shadow: 0 4px 20px rgba(3, 90, 117, 0.3);
+            border-radius: 12px;
+            padding: 1.5rem;
+            max-height: 400px;
+            overflow-y: auto;
+        }
+
+        .event-log h2 {
+            font-size: 1.5rem;
+            color: #ffffff;
+            margin-bottom: 1rem;
+        }
+
+        .event-item {
+            padding: 0.75rem;
+            margin-bottom: 0.5rem;
+            border-radius: 6px;
+            border-left: 4px solid #00ff88;
+            background: rgba(0, 0, 0, 0.3);
+        }
+
+        .event-item.flash {
+            border-left-color: #00ff88;
+        }
+
+        .event-item.erase {
+            border-left-color: #ff8800;
+        }
+
+        .event-item.error {
+            border-left-color: #ff4444;
+        }
+
+        .event-time {
+            color: #888;
+            font-size: 0.9rem;
+        }
+
+        .event-device {
+            color: #00ff88;
+            font-weight: bold;
+        }
+
+        .connection-status {
+            position: fixed;
+            top: 1rem;
+            right: 1rem;
+            padding: 0.5rem 1rem;
+            border-radius: 20px;
+            font-size: 0.9rem;
+            font-weight: bold;
+            z-index: 1000;
+        }
+
+        .connection-status.connected {
+            background: #00ff88;
+            color: #000;
+        }
+
+        .connection-status.disconnected {
+            background: #ff4444;
+            color: #fff;
+        }
+
+        .loading {
+            text-align: center;
+            color: #cccccc;
+            padding: 2rem;
+        }
+
+        .no-data {
+            text-align: center;
+            color: #888;
+            padding: 2rem;
+            font-style: italic;
+        }
+
+        @media (max-width: 768px) {
+            .stats-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .devices-header {
+                flex-direction: column;
+                gap: 1rem;
+                align-items: stretch;
+            }
+
+            .devices-table {
+                font-size: 0.9rem;
+            }
+
+            .devices-table th,
+            .devices-table td {
+                padding: 0.5rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>📊 Pierre ESP32 Flasher - Statistics Dashboard</h1>
+
+        <div class="connection-status" id="connectionStatus">Connecting...</div>
+
+        <!-- Overall Statistics -->
+        <div class="stats-grid">
+            <div class="stat-card">
+                <h3>Total Flash Operations</h3>
+                <div class="stat-number" id="totalFlash">-</div>
+                <div class="stat-label">All time</div>
+            </div>
+            <div class="stat-card">
+                <h3>Total Erase Operations</h3>
+                <div class="stat-number" id="totalErase">-</div>
+                <div class="stat-label">All time</div>
+            </div>
+            <div class="stat-card">
+                <h3>Active Devices</h3>
+                <div class="stat-number" id="activeDevices">-</div>
+                <div class="stat-label">Currently online</div>
+            </div>
+            <div class="stat-card">
+                <h3>Total Devices</h3>
+                <div class="stat-number" id="totalDevices">-</div>
+                <div class="stat-label">Ever seen</div>
+            </div>
+        </div>
+
+        <!-- Devices Table -->
+        <div class="devices-section">
+            <div class="devices-header">
+                <h2>Devices</h2>
+                <button class="refresh-btn" onclick="refreshData()">🔄 Refresh</button>
+            </div>
+            <input type="text" class="search-box" id="searchBox" placeholder="Search devices by name...">
+            <div style="overflow-x: auto;">
+                <table class="devices-table">
+                    <thead>
+                        <tr>
+                            <th>Status</th>
+                            <th>Device Name</th>
+                            <th>Flash Count</th>
+                            <th>Erase Count</th>
+                            <th>Last Seen</th>
+                            <th>Device ID</th>
+                        </tr>
+                    </thead>
+                    <tbody id="devicesTableBody">
+                        <tr>
+                            <td colspan="6" class="loading">Loading devices...</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- Real-time Event Log -->
+        <div class="event-log">
+            <h2>📡 Real-time Events</h2>
+            <div id="eventsList">
+                <div class="no-data">Waiting for events...</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- MQTT.js library -->
+    <script src="https://unpkg.com/mqtt@4.3.7/dist/mqtt.min.js"></script>
+
+    <script>
+        // MQTT Configuration - ugyanaz mint a jelenlegi weboldalon
+        const BROKER_URL = 'wss://0c1bf62a21e94682adf340b8a2d3fe04.s1.eu.hivemq.cloud:8884/mqtt';
+        const USERNAME = 'pierreflasher';
+        const PASSWORD = 'Pierre2k23';
+        const STATS_TOPIC = 'pierre/stats/+/+'; // pierre/stats/{deviceId}/{flash|erase}
+        const DEVICE_INFO_TOPIC = 'pierre/serial/+/+/info'; // For device names
+
+        let mqttClient = null;
+        let deviceStats = new Map(); // deviceId -> {name, flashCount, eraseCount, lastSeen, online}
+        let events = [];
+        let maxEvents = 50;
+
+        // Initialize
+        document.addEventListener('DOMContentLoaded', function() {
+            connectMQTT();
+            setupSearch();
+
+            // Refresh data every 30 seconds
+            setInterval(refreshData, 30000);
+        });
+
+        function connectMQTT() {
+            try {
+                updateConnectionStatus('connecting');
+
+                const clientId = 'pierre-stats-' + Math.random().toString(36).substr(2, 9);
+
+                mqttClient = mqtt.connect(BROKER_URL, {
+                    clientId: clientId,
+                    username: USERNAME,
+                    password: PASSWORD,
+                    clean: true,
+                    connectTimeout: 10000,
+                    keepalive: 30
+                });
+
+                mqttClient.on('connect', function() {
+                    console.log('Connected to MQTT broker');
+                    updateConnectionStatus('connected');
+
+                    // Subscribe to statistics topics
+                    mqttClient.subscribe(STATS_TOPIC, { qos: 0 });
+                    mqttClient.subscribe(DEVICE_INFO_TOPIC, { qos: 0 });
+
+                    console.log('Subscribed to topics');
+                });
+
+                mqttClient.on('message', function(topic, message) {
+                    handleMqttMessage(topic, message.toString());
+                });
+
+                mqttClient.on('error', function(error) {
+                    console.error('MQTT Error:', error);
+                    updateConnectionStatus('error');
+                });
+
+                mqttClient.on('close', function() {
+                    console.log('MQTT connection closed');
+                    updateConnectionStatus('disconnected');
+                });
+
+            } catch (error) {
+                console.error('MQTT connection failed:', error);
+                updateConnectionStatus('error');
+            }
+        }
+
+        function handleMqttMessage(topic, message) {
+            console.log('Received:', topic, message);
+
+            if (topic.startsWith('pierre/stats/')) {
+                handleStatsMessage(topic, message);
+            } else if (topic.includes('/info')) {
+                handleDeviceInfoMessage(topic, message);
+            }
+        }
+
+        function handleStatsMessage(topic, message) {
+            // Topic format: pierre/stats/{deviceId}/{flash|erase}
+            const parts = topic.split('/');
+            if (parts.length >= 4) {
+                const deviceId = parts[2];
+                const eventType = parts[3];
+
+                try {
+                    const data = JSON.parse(message);
+
+                    // Initialize device if not exists
+                    if (!deviceStats.has(deviceId)) {
+                        deviceStats.set(deviceId, {
+                            name: data.device_name || 'Unknown Device',
+                            flashCount: 0,
+                            eraseCount: 0,
+                            lastSeen: new Date(),
+                            online: true
+                        });
+                    }
+
+                    const device = deviceStats.get(deviceId);
+                    device.lastSeen = new Date(data.timestamp || Date.now());
+                    device.online = true;
+
+                    if (data.device_name) {
+                        device.name = data.device_name;
+                    }
+
+                    // Update counters based on event
+                    if (eventType === 'flash' && data.event === 'flash_success') {
+                        device.flashCount++;
+                        addEvent('flash', `${device.name} completed flash operation`, device.name);
+                    } else if (eventType === 'erase' && data.event === 'erase_success') {
+                        device.eraseCount++;
+                        addEvent('erase', `${device.name} completed erase operation`, device.name);
+                    } else if (data.event && data.event.includes('error')) {
+                        addEvent('error', `${device.name} error during ${eventType}`, device.name);
+                    }
+
+                    updateDisplay();
+
+                } catch (e) {
+                    console.error('Failed to parse stats message:', e);
+                }
+            }
+        }
+
+        function handleDeviceInfoMessage(topic, message) {
+            // Topic format: pierre/serial/{deviceId}/{sessionId}/info
+            // Message format: "Device Name|BatteryLevel"
+            const parts = topic.split('/');
+            if (parts.length >= 4) {
+                const deviceId = parts[2];
+                const infoParts = message.split('|');
+                const deviceName = infoParts[0] || 'Unknown Device';
+
+                if (!deviceStats.has(deviceId)) {
+                    deviceStats.set(deviceId, {
+                        name: deviceName,
+                        flashCount: 0,
+                        eraseCount: 0,
+                        lastSeen: new Date(),
+                        online: true
+                    });
+                } else {
+                    const device = deviceStats.get(deviceId);
+                    device.name = deviceName;
+                    device.lastSeen = new Date();
+                    device.online = true;
+                }
+
+                updateDisplay();
+            }
+        }
+
+        function addEvent(type, message, deviceName) {
+            const event = {
+                type: type,
+                message: message,
+                deviceName: deviceName,
+                timestamp: new Date()
+            };
+
+            events.unshift(event);
+
+            // Keep only last N events
+            if (events.length > maxEvents) {
+                events = events.slice(0, maxEvents);
+            }
+
+            updateEventsDisplay();
+        }
+
+        function updateDisplay() {
+            updateOverallStats();
+            updateDevicesTable();
+        }
+
+        function updateOverallStats() {
+            let totalFlash = 0;
+            let totalErase = 0;
+            let activeDevices = 0;
+
+            const now = new Date();
+            const fiveMinutesAgo = new Date(now.getTime() - 5 * 60 * 1000);
+
+            deviceStats.forEach(device => {
+                totalFlash += device.flashCount;
+                totalErase += device.eraseCount;
+
+                if (device.lastSeen > fiveMinutesAgo) {
+                    activeDevices++;
+                }
+            });
+
+            document.getElementById('totalFlash').textContent = totalFlash;
+            document.getElementById('totalErase').textContent = totalErase;
+            document.getElementById('activeDevices').textContent = activeDevices;
+            document.getElementById('totalDevices').textContent = deviceStats.size;
+        }
+
+        function updateDevicesTable() {
+            const tbody = document.getElementById('devicesTableBody');
+            const searchTerm = document.getElementById('searchBox').value.toLowerCase();
+
+            if (deviceStats.size === 0) {
+                tbody.innerHTML = '<tr><td colspan="6" class="no-data">No devices found</td></tr>';
+                return;
+            }
+
+            let html = '';
+            const sortedDevices = Array.from(deviceStats.entries())
+                .sort((a, b) => b[1].lastSeen - a[1].lastSeen);
+
+            const now = new Date();
+            const fiveMinutesAgo = new Date(now.getTime() - 5 * 60 * 1000);
+
+            for (const [deviceId, device] of sortedDevices) {
+                if (searchTerm && !device.name.toLowerCase().includes(searchTerm)) {
+                    continue;
+                }
+
+                const isOnline = device.lastSeen > fiveMinutesAgo;
+                const statusClass = isOnline ? 'status-online' : 'status-offline';
+                const statusText = isOnline ? 'Online' : 'Offline';
+
+                html += `
+                    <tr>
+                        <td>
+                            <span class="status-indicator ${statusClass}"></span>
+                            ${statusText}
+                        </td>
+                        <td>${device.name}</td>
+                        <td>${device.flashCount}</td>
+                        <td>${device.eraseCount}</td>
+                        <td>${formatTime(device.lastSeen)}</td>
+                        <td style="font-family: monospace; font-size: 0.9em;">${deviceId}</td>
+                    </tr>
+                `;
+            }
+
+            tbody.innerHTML = html;
+        }
+
+        function updateEventsDisplay() {
+            const eventsList = document.getElementById('eventsList');
+
+            if (events.length === 0) {
+                eventsList.innerHTML = '<div class="no-data">No events yet...</div>';
+                return;
+            }
+
+            let html = '';
+            events.forEach(event => {
+                html += `
+                    <div class="event-item ${event.type}">
+                        <div class="event-time">${formatTime(event.timestamp)}</div>
+                        <div>
+                            <span class="event-device">${event.deviceName}</span>: ${event.message}
+                        </div>
+                    </div>
+                `;
+            });
+
+            eventsList.innerHTML = html;
+        }
+
+        function updateConnectionStatus(status) {
+            const statusEl = document.getElementById('connectionStatus');
+
+            switch(status) {
+                case 'connected':
+                    statusEl.textContent = '🟢 Connected';
+                    statusEl.className = 'connection-status connected';
+                    break;
+                case 'connecting':
+                    statusEl.textContent = '🟡 Connecting...';
+                    statusEl.className = 'connection-status disconnected';
+                    break;
+                case 'disconnected':
+                    statusEl.textContent = '🔴 Disconnected';
+                    statusEl.className = 'connection-status disconnected';
+                    break;
+                case 'error':
+                    statusEl.textContent = '❌ Error';
+                    statusEl.className = 'connection-status disconnected';
+                    break;
+            }
+        }
+
+        function formatTime(date) {
+            const now = new Date();
+            const diff = now - date;
+            const minutes = Math.floor(diff / 60000);
+            const hours = Math.floor(minutes / 60);
+            const days = Math.floor(hours / 24);
+
+            if (days > 0) return `${days}d ago`;
+            if (hours > 0) return `${hours}h ago`;
+            if (minutes > 0) return `${minutes}m ago`;
+            return 'Just now';
+        }
+
+        function setupSearch() {
+            const searchBox = document.getElementById('searchBox');
+            searchBox.addEventListener('input', function() {
+                updateDevicesTable();
+            });
+        }
+
+        function refreshData() {
+            console.log('Refreshing data...');
+            updateDisplay();
+
+            // Reconnect MQTT if disconnected
+            if (!mqttClient || !mqttClient.connected) {
+                connectMQTT();
+            }
+        }
+
+        // Handle page visibility change
+        document.addEventListener('visibilitychange', function() {
+            if (document.visibilityState === 'visible') {
+                refreshData();
+            }
+        });
+    </script>
+</body>
+</html>
