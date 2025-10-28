@@ -347,7 +347,7 @@
         const DEVICE_INFO_TOPIC = 'pierre/serial/+/+/info'; // For device names
 
         let mqttClient = null;
-        let deviceStats = new Map(); // deviceId -> {name, flashCount, eraseCount, lastSeen, online}
+        let deviceStats = new Map(); // deviceName -> {flashCount, eraseCount, lastSeen, online, lastDeviceId}
         let events = [];
         let maxEvents = 50;
 
@@ -425,35 +425,33 @@
 
                 try {
                     const data = JSON.parse(message);
+                    const deviceName = data.device_name || 'Unknown Device';
 
-                    // Initialize device if not exists
-                    if (!deviceStats.has(deviceId)) {
-                        deviceStats.set(deviceId, {
-                            name: data.device_name || 'Unknown Device',
+                    // Group by device name instead of deviceId
+                    if (!deviceStats.has(deviceName)) {
+                        deviceStats.set(deviceName, {
                             flashCount: 0,
                             eraseCount: 0,
                             lastSeen: new Date(),
-                            online: true
+                            online: true,
+                            lastDeviceId: deviceId
                         });
                     }
 
-                    const device = deviceStats.get(deviceId);
+                    const device = deviceStats.get(deviceName);
                     device.lastSeen = new Date(data.timestamp || Date.now());
                     device.online = true;
-
-                    if (data.device_name) {
-                        device.name = data.device_name;
-                    }
+                    device.lastDeviceId = deviceId; // Track latest deviceId
 
                     // Update counters based on event
                     if (eventType === 'flash' && data.event === 'flash_success') {
                         device.flashCount++;
-                        addEvent('flash', `${device.name} completed flash operation`, device.name);
+                        addEvent('flash', `${deviceName} completed flash operation`, deviceName);
                     } else if (eventType === 'erase' && data.event === 'erase_success') {
                         device.eraseCount++;
-                        addEvent('erase', `${device.name} completed erase operation`, device.name);
+                        addEvent('erase', `${deviceName} completed erase operation`, deviceName);
                     } else if (data.event && data.event.includes('error')) {
-                        addEvent('error', `${device.name} error during ${eventType}`, device.name);
+                        addEvent('error', `${deviceName} error during ${eventType}`, deviceName);
                     }
 
                     updateDisplay();
@@ -473,19 +471,20 @@
                 const infoParts = message.split('|');
                 const deviceName = infoParts[0] || 'Unknown Device';
 
-                if (!deviceStats.has(deviceId)) {
-                    deviceStats.set(deviceId, {
-                        name: deviceName,
+                // Group by device name instead of deviceId
+                if (!deviceStats.has(deviceName)) {
+                    deviceStats.set(deviceName, {
                         flashCount: 0,
                         eraseCount: 0,
                         lastSeen: new Date(),
-                        online: true
+                        online: true,
+                        lastDeviceId: deviceId
                     });
                 } else {
-                    const device = deviceStats.get(deviceId);
-                    device.name = deviceName;
+                    const device = deviceStats.get(deviceName);
                     device.lastSeen = new Date();
                     device.online = true;
+                    device.lastDeviceId = deviceId; // Track latest deviceId
                 }
 
                 updateDisplay();
@@ -554,8 +553,8 @@
             const now = new Date();
             const fiveMinutesAgo = new Date(now.getTime() - 5 * 60 * 1000);
 
-            for (const [deviceId, device] of sortedDevices) {
-                if (searchTerm && !device.name.toLowerCase().includes(searchTerm)) {
+            for (const [deviceName, device] of sortedDevices) {
+                if (searchTerm && !deviceName.toLowerCase().includes(searchTerm)) {
                     continue;
                 }
 
@@ -569,11 +568,11 @@
                             <span class="status-indicator ${statusClass}"></span>
                             ${statusText}
                         </td>
-                        <td>${device.name}</td>
+                        <td>${deviceName}</td>
                         <td>${device.flashCount}</td>
                         <td>${device.eraseCount}</td>
                         <td>${formatTime(device.lastSeen)}</td>
-                        <td style="font-family: monospace; font-size: 0.9em;">${deviceId}</td>
+                        <td style="font-family: monospace; font-size: 0.9em;">${device.lastDeviceId}</td>
                     </tr>
                 `;
             }
