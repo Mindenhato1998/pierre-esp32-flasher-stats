@@ -645,7 +645,32 @@
                     updateDisplay();
                     saveToStorage(); // Save after each update
                 } else {
-                    console.log(`Unknown device with ID: ${deviceId}`);
+                    // Device not found by deviceId, create placeholder entry for status tracking
+                    console.log(`Creating placeholder for unknown device with ID: ${deviceId}, status: ${status}`);
+
+                    const placeholderName = `Device ${deviceId}`;
+                    if (!deviceStats.has(placeholderName)) {
+                        deviceStats.set(placeholderName, {
+                            flashCount: 0,
+                            eraseCount: 0,
+                            lastSeen: new Date(),
+                            lastHeartbeat: new Date(),
+                            online: status === 'online',
+                            lastDeviceId: deviceId
+                        });
+                    } else {
+                        const device = deviceStats.get(placeholderName);
+                        device.online = status === 'online';
+                        device.lastHeartbeat = new Date();
+                        device.lastDeviceId = deviceId;
+                    }
+
+                    // Add event for status change
+                    const eventMessage = status === 'online' ? 'Device connected' : 'Device disconnected';
+                    addEvent('info', eventMessage, placeholderName);
+
+                    updateDisplay();
+                    saveToStorage();
                 }
             }
         }
