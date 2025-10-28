@@ -419,6 +419,7 @@
             connectMQTT();
             setupSearch();
             updateDisplay(); // Show loaded data immediately
+            updateEventsDisplay(); // Show loaded events immediately
 
             // Refresh data every 30 seconds
             setInterval(refreshData, 30000);
