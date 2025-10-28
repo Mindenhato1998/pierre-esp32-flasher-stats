@@ -349,6 +349,7 @@
         const STATS_TOPIC = 'pierre/stats/+/+'; // pierre/stats/{deviceId}/{flash|erase}
         const DEVICE_INFO_TOPIC = 'pierre/serial/+/+/info'; // For device names
         const STATUS_TOPIC = 'pierre/serial/+/+/status'; // For heartbeat/online status
+        const NEW_STATUS_TOPIC = 'pierre/status/+/+'; // For new LWT-based online/offline status
 
         let mqttClient = null;
         let deviceStats = new Map(); // deviceName -> {flashCount, eraseCount, lastSeen, online, lastDeviceId}
@@ -454,6 +455,7 @@
                     mqttClient.subscribe(STATS_TOPIC, { qos: 0 });
                     mqttClient.subscribe(DEVICE_INFO_TOPIC, { qos: 0 });
                     mqttClient.subscribe(STATUS_TOPIC, { qos: 0 });
+                    mqttClient.subscribe(NEW_STATUS_TOPIC, { qos: 0 });
 
                     console.log('Subscribed to topics');
                 });
@@ -487,6 +489,8 @@
                 handleDeviceInfoMessage(topic, message);
             } else if (topic.includes('/status')) {
                 handleStatusMessage(topic, message);
+            } else if (topic.startsWith('pierre/status/')) {
+                handleNewStatusMessage(topic, message);
             }
         }
 
@@ -598,6 +602,50 @@
 
                     updateDisplay();
                     saveToStorage(); // Save after each update
+                }
+            }
+        }
+
+        function handleNewStatusMessage(topic, message) {
+            // Topic format: pierre/status/{deviceId}/online or pierre/status/{deviceId}/offline
+            console.log('New status message:', topic, message);
+
+            const parts = topic.split('/');
+            if (parts.length >= 4) {
+                const deviceId = parts[2];
+                const status = parts[3]; // 'online' or 'offline'
+
+                // Find device by deviceId
+                let targetDeviceName = null;
+                deviceStats.forEach((device, deviceName) => {
+                    if (device.lastDeviceId === deviceId) {
+                        targetDeviceName = deviceName;
+                    }
+                });
+
+                if (targetDeviceName) {
+                    const device = deviceStats.get(targetDeviceName);
+
+                    if (status === 'online') {
+                        device.lastHeartbeat = new Date();
+                        device.online = true;
+                        console.log(`${targetDeviceName} is now ONLINE (LWT)`);
+
+                        // Add event for going online
+                        addEvent('info', 'Device connected', targetDeviceName);
+
+                    } else if (status === 'offline') {
+                        device.online = false;
+                        console.log(`${targetDeviceName} is now OFFLINE (LWT)`);
+
+                        // Add event for going offline
+                        addEvent('info', 'Device disconnected', targetDeviceName);
+                    }
+
+                    updateDisplay();
+                    saveToStorage(); // Save after each update
+                } else {
+                    console.log(`Unknown device with ID: ${deviceId}`);
                 }
             }
         }
