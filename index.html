@@ -348,6 +348,7 @@
         const PASSWORD = 'Pierre2k23';
         const STATS_TOPIC = 'pierre/stats/+/+'; // pierre/stats/{deviceId}/{flash|erase}
         const DEVICE_INFO_TOPIC = 'pierre/serial/+/+/info'; // For device names
+        const STATUS_TOPIC = 'pierre/serial/+/+/status'; // For heartbeat/online status
 
         let mqttClient = null;
         let deviceStats = new Map(); // deviceName -> {flashCount, eraseCount, lastSeen, online, lastDeviceId}
@@ -369,6 +370,14 @@
                     devicesArray.forEach(([name, data]) => {
                         // Convert lastSeen back to Date object
                         data.lastSeen = new Date(data.lastSeen);
+                        // Add lastHeartbeat if missing (for backward compatibility)
+                        if (!data.lastHeartbeat) {
+                            data.lastHeartbeat = new Date(0); // Very old date
+                        } else {
+                            data.lastHeartbeat = new Date(data.lastHeartbeat);
+                        }
+                        // Set initial online status to false (will be updated by heartbeat)
+                        data.online = false;
                         deviceStats.set(name, data);
                     });
                     console.log('Loaded', deviceStats.size, 'devices from storage');
@@ -443,6 +452,7 @@
                     // Subscribe to statistics topics
                     mqttClient.subscribe(STATS_TOPIC, { qos: 0 });
                     mqttClient.subscribe(DEVICE_INFO_TOPIC, { qos: 0 });
+                    mqttClient.subscribe(STATUS_TOPIC, { qos: 0 });
 
                     console.log('Subscribed to topics');
                 });
@@ -474,6 +484,8 @@
                 handleStatsMessage(topic, message);
             } else if (topic.includes('/info')) {
                 handleDeviceInfoMessage(topic, message);
+            } else if (topic.includes('/status')) {
+                handleStatusMessage(topic, message);
             }
         }
 
@@ -494,15 +506,15 @@
                             flashCount: 0,
                             eraseCount: 0,
                             lastSeen: new Date(),
-                            online: true,
+                            lastHeartbeat: new Date(0), // Will be set by status messages
+                            online: false, // Will be set by heartbeat
                             lastDeviceId: deviceId
                         });
                     }
 
                     const device = deviceStats.get(deviceName);
-                    // Only update lastSeen and online status for actual flash/erase operations
+                    // Update lastSeen for stats tracking, but don't change online status
                     device.lastSeen = new Date(data.timestamp || Date.now());
-                    device.online = true;
                     device.lastDeviceId = deviceId; // Track latest deviceId
 
                     // Update counters based on event
@@ -540,7 +552,8 @@
                         flashCount: 0,
                         eraseCount: 0,
                         lastSeen: new Date(),
-                        online: true,
+                        lastHeartbeat: new Date(), // Track heartbeat separately
+                        online: false, // Will be set by heartbeat
                         lastDeviceId: deviceId
                     });
                 } else {
@@ -552,6 +565,39 @@
 
                 updateDisplay();
                 saveToStorage(); // Save after each update
+            }
+        }
+
+        function handleStatusMessage(topic, message) {
+            // Topic format: pierre/serial/{deviceId}/{sessionId}/status
+            // Message: "connected" or "disconnected"
+            const parts = topic.split('/');
+            if (parts.length >= 4) {
+                const deviceId = parts[2];
+
+                // Find device by deviceId (since we don't have device name in status messages)
+                let targetDeviceName = null;
+                deviceStats.forEach((device, deviceName) => {
+                    if (device.lastDeviceId === deviceId) {
+                        targetDeviceName = deviceName;
+                    }
+                });
+
+                if (targetDeviceName) {
+                    const device = deviceStats.get(targetDeviceName);
+
+                    if (message === 'connected') {
+                        device.lastHeartbeat = new Date();
+                        device.online = true;
+                        console.log(`${targetDeviceName} heartbeat: online`);
+                    } else if (message === 'disconnected') {
+                        device.online = false;
+                        console.log(`${targetDeviceName} disconnected: offline`);
+                    }
+
+                    updateDisplay();
+                    saveToStorage(); // Save after each update
+                }
             }
         }
 
@@ -747,20 +793,22 @@
             }
         }
 
-        // Update online status based on last activity
+        // Update online status based on heartbeat
         function updateOnlineStatus() {
             const now = new Date();
-            const fiveMinutesAgo = new Date(now.getTime() - 5 * 60 * 1000);
+            const twoMinutesAgo = new Date(now.getTime() - 2 * 60 * 1000); // 2 minutes timeout
             let updated = false;
 
             deviceStats.forEach((device, deviceName) => {
                 const wasOnline = device.online;
-                const isOnline = device.lastSeen > fiveMinutesAgo;
+                // Device is online if it received a heartbeat in the last 2 minutes
+                const hasRecentHeartbeat = device.lastHeartbeat && device.lastHeartbeat > twoMinutesAgo;
 
-                if (wasOnline !== isOnline) {
-                    device.online = isOnline;
+                if (wasOnline && !hasRecentHeartbeat) {
+                    // Device was online but no recent heartbeat = offline
+                    device.online = false;
                     updated = true;
-                    console.log(`${deviceName} status changed to ${isOnline ? 'online' : 'offline'}`);
+                    console.log(`${deviceName} heartbeat timeout: offline`);
                 }
             });
 
