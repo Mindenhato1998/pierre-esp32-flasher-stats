@@ -416,6 +416,9 @@
 
             // Save data every 10 seconds
             setInterval(saveToStorage, 10000);
+
+            // Check device online status every 30 seconds
+            setInterval(updateOnlineStatus, 30000);
         });
 
         function connectMQTT() {
@@ -497,6 +500,7 @@
                     }
 
                     const device = deviceStats.get(deviceName);
+                    // Only update lastSeen and online status for actual flash/erase operations
                     device.lastSeen = new Date(data.timestamp || Date.now());
                     device.online = true;
                     device.lastDeviceId = deviceId; // Track latest deviceId
@@ -513,7 +517,6 @@
                     }
 
                     updateDisplay();
-                saveToStorage(); // Save after each update
                     saveToStorage(); // Save after each update
 
                 } catch (e) {
@@ -542,8 +545,8 @@
                     });
                 } else {
                     const device = deviceStats.get(deviceName);
-                    device.lastSeen = new Date();
-                    device.online = true;
+                    // Don't update lastSeen or online status from device info messages
+                    // Only update device ID to track latest connection
                     device.lastDeviceId = deviceId; // Track latest deviceId
                 }
 
@@ -741,6 +744,29 @@
                 }
             } else if (password !== null) {
                 alert('❌ Incorrect password!');
+            }
+        }
+
+        // Update online status based on last activity
+        function updateOnlineStatus() {
+            const now = new Date();
+            const fiveMinutesAgo = new Date(now.getTime() - 5 * 60 * 1000);
+            let updated = false;
+
+            deviceStats.forEach((device, deviceName) => {
+                const wasOnline = device.online;
+                const isOnline = device.lastSeen > fiveMinutesAgo;
+
+                if (wasOnline !== isOnline) {
+                    device.online = isOnline;
+                    updated = true;
+                    console.log(`${deviceName} status changed to ${isOnline ? 'online' : 'offline'}`);
+                }
+            });
+
+            if (updated) {
+                updateDisplay();
+                saveToStorage();
             }
         }
 
