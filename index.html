@@ -302,7 +302,10 @@
         <div class="devices-section">
             <div class="devices-header">
                 <h2>Devices</h2>
-                <button class="refresh-btn" onclick="refreshData()">🔄 Refresh</button>
+                <div style="display: flex; gap: 0.5rem;">
+                    <button class="refresh-btn" onclick="refreshData()">🔄 Refresh</button>
+                    <button class="refresh-btn" onclick="resetStatistics()" style="background: #ff4444; color: white;">🗑️ Reset</button>
+                </div>
             </div>
             <input type="text" class="search-box" id="searchBox" placeholder="Search devices by name...">
             <div style="overflow-x: auto;">
@@ -351,13 +354,68 @@
         let events = [];
         let maxEvents = 50;
 
+        // Password for reset functionality
+        const RESET_PASSWORD = "Pierre2k23";
+
+        // Load data from localStorage on startup
+        function loadStoredData() {
+            try {
+                const storedDevices = localStorage.getItem('pierre-stats-devices');
+                const storedEvents = localStorage.getItem('pierre-stats-events');
+
+                if (storedDevices) {
+                    const devicesArray = JSON.parse(storedDevices);
+                    deviceStats.clear();
+                    devicesArray.forEach(([name, data]) => {
+                        // Convert lastSeen back to Date object
+                        data.lastSeen = new Date(data.lastSeen);
+                        deviceStats.set(name, data);
+                    });
+                    console.log('Loaded', deviceStats.size, 'devices from storage');
+                }
+
+                if (storedEvents) {
+                    const eventsArray = JSON.parse(storedEvents);
+                    events.length = 0; // Clear array
+                    eventsArray.forEach(event => {
+                        // Convert timestamp back to Date object
+                        event.timestamp = new Date(event.timestamp);
+                        events.push(event);
+                    });
+                    console.log('Loaded', events.length, 'events from storage');
+                }
+            } catch (e) {
+                console.error('Error loading stored data:', e);
+            }
+        }
+
+        // Save data to localStorage
+        function saveToStorage() {
+            try {
+                // Convert Map to array for JSON storage
+                const devicesArray = Array.from(deviceStats.entries());
+                localStorage.setItem('pierre-stats-devices', JSON.stringify(devicesArray));
+
+                // Keep only last maxEvents for storage
+                const eventsToStore = events.slice(0, maxEvents);
+                localStorage.setItem('pierre-stats-events', JSON.stringify(eventsToStore));
+            } catch (e) {
+                console.error('Error saving to storage:', e);
+            }
+        }
+
         // Initialize
         document.addEventListener('DOMContentLoaded', function() {
+            loadStoredData(); // Load stored data first
             connectMQTT();
             setupSearch();
+            updateDisplay(); // Show loaded data immediately
 
             // Refresh data every 30 seconds
             setInterval(refreshData, 30000);
+
+            // Save data every 10 seconds
+            setInterval(saveToStorage, 10000);
         });
 
         function connectMQTT() {
@@ -455,6 +513,8 @@
                     }
 
                     updateDisplay();
+                saveToStorage(); // Save after each update
+                    saveToStorage(); // Save after each update
 
                 } catch (e) {
                     console.error('Failed to parse stats message:', e);
@@ -488,6 +548,7 @@
                 }
 
                 updateDisplay();
+                saveToStorage(); // Save after each update
             }
         }
 
@@ -653,6 +714,33 @@
             // Reconnect MQTT if disconnected
             if (!mqttClient || !mqttClient.connected) {
                 connectMQTT();
+            }
+        }
+
+        // Reset statistics with password protection
+        function resetStatistics() {
+            const password = prompt('Enter password to reset all statistics:');
+
+            if (password === RESET_PASSWORD) {
+                const confirmed = confirm('Are you sure you want to reset ALL statistics? This cannot be undone!');
+
+                if (confirmed) {
+                    // Clear all data
+                    deviceStats.clear();
+                    events.length = 0;
+
+                    // Clear localStorage
+                    localStorage.removeItem('pierre-stats-devices');
+                    localStorage.removeItem('pierre-stats-events');
+
+                    // Update display
+                    updateDisplay();
+
+                    alert('✅ All statistics have been reset!');
+                    console.log('Statistics reset successfully');
+                }
+            } else if (password !== null) {
+                alert('❌ Incorrect password!');
             }
         }
 
