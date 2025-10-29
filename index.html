@@ -165,11 +165,40 @@
             margin-top: 2rem;
         }
 
+        .chart-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 1.5rem;
+        }
+
         .chart-title {
             font-size: 1.5rem;
             font-weight: 600;
-            margin-bottom: 1.5rem;
             color: #fff;
+            margin: 0;
+        }
+
+        .reset-btn {
+            background: #333;
+            color: #fff;
+            border: 1px solid #555;
+            border-radius: 6px;
+            padding: 8px 16px;
+            font-size: 0.9rem;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .reset-btn:hover {
+            background: #444;
+            border-color: #666;
+            transform: translateY(-1px);
+        }
+
+        .reset-btn:active {
+            transform: translateY(0);
+            background: #555;
         }
 
         .chart-container {
@@ -207,7 +236,10 @@
         </div>
 
         <div class="chart-section">
-            <h2 class="chart-title">Device Count (Last 24 Hours)</h2>
+            <div class="chart-header">
+                <h2 class="chart-title">Device Count (Last 24 Hours)</h2>
+                <button id="resetChart" class="reset-btn">Reset Chart</button>
+            </div>
             <div class="chart-container">
                 <canvas id="deviceChart" width="800" height="200"></canvas>
             </div>
@@ -393,6 +425,23 @@
             }
         }
 
+        function resetChart() {
+            // Clear all chart data
+            chartData.length = 0;
+
+            // Update chart to show empty state
+            if (deviceChart) {
+                deviceChart.data.labels = [];
+                deviceChart.data.datasets[0].data = [];
+                deviceChart.update();
+            }
+
+            console.log('📊 Chart reset - data cleared');
+
+            // Add current data point to restart tracking
+            updateChart();
+        }
+
         function processMessage(topic, message) {
             console.log(`📨 ${topic}: ${message}`);
 
@@ -550,6 +599,9 @@
 
             // Add initial data point
             updateChart();
+
+            // Setup reset button
+            document.getElementById('resetChart').addEventListener('click', resetChart);
 
             // Start monitoring
             connectMQTT();
