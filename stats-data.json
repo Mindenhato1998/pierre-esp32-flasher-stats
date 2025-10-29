@@ -1,55 +1,36 @@
 {
   "devices": {
-    "Xiaomi Redmi Note 8 Pro": {
-      "flashCount": 0,
-      "eraseCount": 0,
-      "lastSeen": "2025-10-29T09:45:47.555Z",
-      "online": false,
-      "lastDeviceId": "c58c370d-c17",
-      "appVersion": "unknown"
+    "samsung SM-A536B": {
+      "flashCount": 12,
+      "eraseCount": 8,
+      "lastSeen": "2025-01-29T09:10:00.000Z",
+      "online": true,
+      "lastDeviceId": "b32fd3b6-33a",
+      "appVersion": "2.0.31"
     },
     "samsung SM-T510": {
-      "flashCount": 0,
-      "eraseCount": 0,
-      "lastSeen": "2025-10-29T09:45:47.558Z",
+      "flashCount": 5,
+      "eraseCount": 3,
+      "lastSeen": "2025-01-29T09:08:00.000Z",
       "online": false,
       "lastDeviceId": "55b99345-508",
-      "appVersion": "unknown"
-    },
-    "samsung SM-A536B": {
-      "flashCount": 0,
-      "eraseCount": 0,
-      "lastSeen": "2025-10-29T09:45:47.560Z",
-      "online": false,
-      "lastDeviceId": "b32fd3b6-33a",
-      "appVersion": "unknown"
-    },
-    "realme RMX3890": {
-      "flashCount": 0,
-      "eraseCount": 0,
-      "lastSeen": "2025-10-29T09:45:47.605Z",
-      "online": false,
-      "lastDeviceId": "f9e7bbbc-286",
-      "appVersion": "unknown"
-    },
-    "samsung SM-S928B": {
-      "flashCount": 0,
-      "eraseCount": 0,
-      "lastSeen": "2025-10-29T09:45:47.607Z",
-      "online": false,
-      "lastDeviceId": "90233921-976",
-      "appVersion": "unknown"
-    },
-    "samsung SM-A528B": {
-      "flashCount": 0,
-      "eraseCount": 0,
-      "lastSeen": "2025-10-29T09:45:47.620Z",
-      "online": false,
-      "lastDeviceId": "68942905-6d6",
-      "appVersion": "unknown"
+      "appVersion": "2.0.30"
     }
   },
-  "events": [],
-  "lastUpdate": "2025-10-29T09:45:47.632Z",
+  "events": [
+    {
+      "type": "info",
+      "message": "samsung SM-A536B connected",
+      "deviceName": "samsung SM-A536B",
+      "timestamp": "2025-01-29T09:10:00.000Z"
+    },
+    {
+      "type": "flash",
+      "message": "samsung SM-A536B completed flash operation",
+      "deviceName": "samsung SM-A536B",
+      "timestamp": "2025-01-29T09:09:30.000Z"
+    }
+  ],
+  "lastUpdate": "2025-10-29T09:45:57.215Z",
   "version": "1.0"
 }
