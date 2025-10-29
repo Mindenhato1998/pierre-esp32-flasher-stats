@@ -156,6 +156,29 @@
             font-size: 0.9rem;
             color: #666;
         }
+
+        .chart-section {
+            background: #111;
+            border-radius: 12px;
+            padding: 2rem;
+            border: 1px solid #333;
+            margin-top: 2rem;
+        }
+
+        .chart-title {
+            font-size: 1.5rem;
+            font-weight: 600;
+            margin-bottom: 1.5rem;
+            color: #fff;
+        }
+
+        .chart-container {
+            position: relative;
+            height: 200px;
+            background: #1a1a1a;
+            border-radius: 8px;
+            padding: 1rem;
+        }
     </style>
 </head>
 <body>
@@ -182,9 +205,17 @@
         <div class="refresh-info">
             <p>Real-time monitoring via HiveMQ Cloud</p>
         </div>
+
+        <div class="chart-section">
+            <h2 class="chart-title">Device Count (Last 24 Hours)</h2>
+            <div class="chart-container">
+                <canvas id="deviceChart" width="800" height="200"></canvas>
+            </div>
+        </div>
     </div>
 
     <script src="https://unpkg.com/mqtt/dist/mqtt.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script>
         // MQTT connection settings
         const MQTT_HOST = 'wss://0c1bf62a21e94682adf340b8a2d3fe04.s1.eu.hivemq.cloud:8884/mqtt';
@@ -194,6 +225,10 @@
         // Store connected devices
         const connectedDevices = new Map();
         let client = null;
+
+        // Chart data - store device count over time (last 24 hours)
+        const chartData = [];
+        let deviceChart = null;
 
         // DOM elements
         const connectionStatus = document.getElementById('connectionStatus');
@@ -282,6 +317,82 @@
             });
         }
 
+        function initChart() {
+            const ctx = document.getElementById('deviceChart').getContext('2d');
+            deviceChart = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: [],
+                    datasets: [{
+                        label: 'Connected Devices',
+                        data: [],
+                        borderColor: '#00ff88',
+                        backgroundColor: 'rgba(0, 255, 136, 0.1)',
+                        borderWidth: 2,
+                        fill: true,
+                        tension: 0.4
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            labels: {
+                                color: '#fff'
+                            }
+                        }
+                    },
+                    scales: {
+                        x: {
+                            ticks: {
+                                color: '#888',
+                                maxTicksLimit: 12
+                            },
+                            grid: {
+                                color: '#333'
+                            }
+                        },
+                        y: {
+                            beginAtZero: true,
+                            ticks: {
+                                color: '#888',
+                                stepSize: 1
+                            },
+                            grid: {
+                                color: '#333'
+                            }
+                        }
+                    }
+                }
+            });
+        }
+
+        function updateChart() {
+            const now = new Date();
+            const currentDeviceCount = connectedDevices.size;
+
+            // Add current data point
+            chartData.push({
+                time: now.getTime(),
+                count: currentDeviceCount,
+                label: now.toLocaleTimeString('hu-HU', { hour: '2-digit', minute: '2-digit' })
+            });
+
+            // Remove data older than 24 hours
+            const twentyFourHoursAgo = now.getTime() - (24 * 60 * 60 * 1000);
+            while (chartData.length > 0 && chartData[0].time < twentyFourHoursAgo) {
+                chartData.shift();
+            }
+
+            // Update chart data
+            if (deviceChart) {
+                deviceChart.data.labels = chartData.map(point => point.label);
+                deviceChart.data.datasets[0].data = chartData.map(point => point.count);
+                deviceChart.update('none'); // No animation for performance
+            }
+        }
+
         function processMessage(topic, message) {
             console.log(`📨 ${topic}: ${message}`);
 
@@ -316,6 +427,7 @@
                         });
                     }
                     updateDeviceList();
+                    updateChart();
                     return;
                 }
             } else if (parts[1] === 'serial' && parts.length >= 5) {
@@ -361,6 +473,7 @@
                 });
 
                 updateDeviceList();
+                updateChart();
             }
         }
 
@@ -375,6 +488,7 @@
             }
 
             updateDeviceList();
+            updateChart();
         }
 
         function connectMQTT() {
@@ -429,14 +543,26 @@
             }
         }
 
-        // Start monitoring
-        connectMQTT();
+        // Wait for DOM to be fully loaded
+        document.addEventListener('DOMContentLoaded', function() {
+            // Initialize chart
+            initChart();
 
-        // Clean up offline devices every 30 seconds
-        setInterval(cleanupOfflineDevices, 30000);
+            // Add initial data point
+            updateChart();
 
-        // Update device list every 5 seconds to refresh "last seen" times
-        setInterval(updateDeviceList, 5000);
+            // Start monitoring
+            connectMQTT();
+
+            // Clean up offline devices every 30 seconds
+            setInterval(cleanupOfflineDevices, 30000);
+
+            // Update device list every 5 seconds to refresh "last seen" times
+            setInterval(updateDeviceList, 5000);
+
+            // Update chart every minute
+            setInterval(updateChart, 60000);
+        });
     </script>
 </body>
 </html>
