@@ -139,6 +139,14 @@ class ESP32StatsCollector:
 
             logger.info(f"📨 [{self.messages_received}] {topic}: {payload}")
 
+            # Log potentially interesting patterns that might indicate operations
+            if '/count' in topic and payload != '0':
+                logger.info(f"🚨 NON-ZERO COUNT DETECTED: {topic} = {payload}")
+            if '/config' in topic and 'BUFFER' not in payload:
+                logger.info(f"🚨 UNUSUAL CONFIG: {topic} = {payload}")
+            if '/status' in topic and payload not in ['connected', 'disconnected']:
+                logger.info(f"🚨 UNUSUAL STATUS: {topic} = {payload}")
+
             if topic.startswith('pierre/stats/'):
                 self.handle_stats_message(topic, payload)
             elif '/count' in topic:
@@ -337,12 +345,15 @@ class ESP32StatsCollector:
                 return
 
             device_id = parts[2]
+            session_id = parts[3]
             status = payload.strip()  # connected, disconnected, etc.
             is_online = (status == 'connected')
 
             # Find device by deviceId and update status
-            for device_name, device_data in self.device_stats.items():
+            device_name = None
+            for name, device_data in self.device_stats.items():
                 if device_data.get('lastDeviceId') == device_id:
+                    device_name = name
                     if device_data['online'] != is_online:
                         device_data['online'] = is_online
                         device_data['lastSeen'] = datetime.now(timezone.utc).isoformat()
@@ -350,8 +361,21 @@ class ESP32StatsCollector:
                         status_msg = "connected" if is_online else "disconnected"
                         self.add_event('info', f'{device_name} {status_msg}', device_name)
                         logger.info(f"📱 {device_name} is now {status_msg}")
+
+                        # EXPERIMENTAL: Count disconnections as potential flash/erase operations
+                        if status == 'disconnected':
+                            # Assume disconnection might indicate a completed operation
+                            device_data['flashCount'] += 1
+                            self.add_event('flash', f'{device_name} completed operation (detected via disconnect)', device_name)
+                            logger.info(f"📊 {device_name} flash count incremented due to disconnect (experimental detection)")
+
                         self.data_changed = True
                     break
+
+            # Log unknown devices that disconnect/connect
+            if not device_name and status == 'disconnected':
+                unknown_device = f'Device {device_id}'
+                logger.info(f"🔍 Unknown device {unknown_device} disconnected - potential operation")
 
         except Exception as e:
             logger.error(f"Error handling serial status message: {e}")
