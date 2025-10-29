@@ -246,6 +246,28 @@
             font-style: italic;
         }
 
+        .manual-btn {
+            background: #00ff88;
+            color: #000;
+            border: none;
+            padding: 0.4rem 0.8rem;
+            border-radius: 6px;
+            font-weight: bold;
+            font-size: 0.9rem;
+            cursor: pointer;
+            margin-top: 0.8rem;
+            transition: all 0.2s ease;
+        }
+
+        .manual-btn:hover {
+            background: #00cc66;
+            transform: translateY(-1px);
+        }
+
+        .manual-btn:active {
+            transform: translateY(0);
+        }
+
         @media (max-width: 768px) {
             .stats-grid {
                 grid-template-columns: 1fr;
@@ -280,11 +302,13 @@
                 <h3>Total Flash Operations</h3>
                 <div class="stat-number" id="totalFlash">-</div>
                 <div class="stat-label">All time</div>
+                <button class="manual-btn" onclick="addManualOperation('flash')">+1 Flash</button>
             </div>
             <div class="stat-card">
                 <h3>Total Erase Operations</h3>
                 <div class="stat-number" id="totalErase">-</div>
                 <div class="stat-label">All time</div>
+                <button class="manual-btn" onclick="addManualOperation('erase')">+1 Erase</button>
             </div>
             <div class="stat-card">
                 <h3>Active Devices</h3>
@@ -645,6 +669,60 @@
                 }
             } else if (password !== null) {
                 alert('❌ Incorrect password!');
+            }
+        }
+
+        // Manual operation tracking
+        async function addManualOperation(operationType) {
+            try {
+                const deviceName = prompt('Device name (pl.: "My Phone"):') || 'Manual Device';
+
+                // Load current data
+                const response = await fetch('https://raw.githubusercontent.com/Mindenhato1998/pierre-esp32-flasher-stats/main/stats-data.json?t=' + Date.now());
+                const data = await response.json();
+
+                // Update counts
+                if (!data.devices[deviceName]) {
+                    data.devices[deviceName] = {
+                        flashCount: 0,
+                        eraseCount: 0,
+                        lastSeen: new Date().toISOString(),
+                        online: false,
+                        lastDeviceId: 'manual-' + Date.now(),
+                        appVersion: 'manual'
+                    };
+                }
+
+                if (operationType === 'flash') {
+                    data.devices[deviceName].flashCount += 1;
+                } else if (operationType === 'erase') {
+                    data.devices[deviceName].eraseCount += 1;
+                }
+
+                data.devices[deviceName].lastSeen = new Date().toISOString();
+
+                // Add event
+                data.events.unshift({
+                    type: operationType,
+                    message: `${deviceName} completed ${operationType} operation (manual)`,
+                    deviceName: deviceName,
+                    timestamp: new Date().toISOString()
+                });
+
+                // Keep only latest 100 events
+                data.events = data.events.slice(0, 100);
+                data.lastUpdate = new Date().toISOString();
+
+                // Update local display immediately
+                loadDataFromObject(data);
+                updateDisplay();
+
+                console.log(`✅ Added manual ${operationType} for ${deviceName}`);
+                alert(`✅ Added ${operationType} operation for ${deviceName}`);
+
+            } catch (error) {
+                console.error('❌ Error adding manual operation:', error);
+                alert('❌ Error adding operation. Check console for details.');
             }
         }
 
