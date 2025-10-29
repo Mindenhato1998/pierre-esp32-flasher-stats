@@ -586,17 +586,14 @@
                         lastSeen: new Date(),
                         online: false, // Will be set by LWT messages
                         lastDeviceId: deviceId,
-                        appVersion: data.app_version || 'unknown'
+                        appVersion: 'unknown'
                     });
                 } else {
                     const device = deviceStats.get(deviceName);
                     // Don't update lastSeen or online status from device info messages
                     // Only update device ID to track latest connection
                     device.lastDeviceId = deviceId; // Track latest deviceId
-                    // Update app version if available
-                    if (data.app_version) {
-                        device.appVersion = data.app_version;
-                    }
+                    // Device info messages don't contain app version
                 }
 
                 updateDisplay();
