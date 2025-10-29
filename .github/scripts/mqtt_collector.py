@@ -42,8 +42,8 @@ class ESP32StatsCollector:
         self.events = []
         self.max_events = 100
 
-        # Count tracking for flash/erase operations
-        self.device_counts = {}  # Track last known count per device
+        # Session tracking for flash/erase operations
+        self.known_sessions = set()  # Track seen session IDs
 
         # Connection tracking
         self.connected = False
@@ -157,6 +157,8 @@ class ESP32StatsCollector:
                 self.handle_status_message(topic, payload)
             elif '/info' in topic:
                 self.handle_info_message(topic, payload)
+                # NEW: Track sessions as operations
+                self.handle_session_tracking(topic, payload)
 
         except Exception as e:
             logger.error(f"Error processing message {topic}: {e}")
@@ -379,6 +381,53 @@ class ESP32StatsCollector:
 
         except Exception as e:
             logger.error(f"Error handling serial status message: {e}")
+
+    def handle_session_tracking(self, topic, payload):
+        """Track new sessions as ESP32 operations"""
+        try:
+            # Topic format: pierre/serial/{deviceId}/{sessionId}/info
+            parts = topic.split('/')
+            if len(parts) < 4:
+                return
+
+            device_id = parts[2]
+            session_id = parts[3]
+            session_key = f"{device_id}:{session_id}"
+
+            # Check if this is a new session
+            if session_key not in self.known_sessions:
+                self.known_sessions.add(session_key)
+
+                # Extract device name from payload
+                device_name = payload.split('|')[0] if '|' in payload else f'Device {device_id}'
+
+                # Initialize device if not exists
+                if device_name not in self.device_stats:
+                    self.device_stats[device_name] = {
+                        'flashCount': 0,
+                        'eraseCount': 0,
+                        'lastSeen': datetime.now(timezone.utc).isoformat(),
+                        'online': True,
+                        'lastDeviceId': device_id,
+                        'appVersion': 'unknown'
+                    }
+
+                device = self.device_stats[device_name]
+                device['lastSeen'] = datetime.now(timezone.utc).isoformat()
+                device['lastDeviceId'] = device_id
+                device['online'] = True
+
+                # Count new session as a flash operation (most common)
+                device['flashCount'] += 1
+                self.add_event('flash', f'{device_name} started new session (auto-detected operation)', device_name)
+
+                logger.info(f"🆕 NEW SESSION DETECTED: {session_key} - {device_name}")
+                logger.info(f"📊 {device_name} flash count: {device['flashCount']}")
+
+                self.data_changed = True
+
+        except Exception as e:
+            logger.error(f"Error handling session tracking: {e}")
 
     def add_event(self, event_type, message, device_name):
         """Add event to the events list"""
