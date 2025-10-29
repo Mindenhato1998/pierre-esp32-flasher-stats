@@ -1,6 +1,36 @@
 {
-  "devices": {},
-  "events": [],
-  "lastUpdate": "2025-01-29T09:00:00Z",
+  "devices": {
+    "samsung SM-A536B": {
+      "flashCount": 12,
+      "eraseCount": 8,
+      "lastSeen": "2025-01-29T09:10:00Z",
+      "online": true,
+      "lastDeviceId": "b32fd3b6-33a",
+      "appVersion": "2.0.31"
+    },
+    "samsung SM-T510": {
+      "flashCount": 5,
+      "eraseCount": 3,
+      "lastSeen": "2025-01-29T09:08:00Z",
+      "online": false,
+      "lastDeviceId": "55b99345-508",
+      "appVersion": "2.0.30"
+    }
+  },
+  "events": [
+    {
+      "type": "info",
+      "message": "samsung SM-A536B connected",
+      "deviceName": "samsung SM-A536B",
+      "timestamp": "2025-01-29T09:10:00Z"
+    },
+    {
+      "type": "flash",
+      "message": "samsung SM-A536B completed flash operation",
+      "deviceName": "samsung SM-A536B",
+      "timestamp": "2025-01-29T09:09:30Z"
+    }
+  ],
+  "lastUpdate": "2025-01-29T09:10:00Z",
   "version": "1.0"
 }
