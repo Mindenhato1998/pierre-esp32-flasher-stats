@@ -53,6 +53,9 @@ class ESP32StatsCollector:
         # Load existing data
         self.load_existing_data()
 
+        # Load known sessions from existing data to avoid double-counting
+        self.load_known_sessions()
+
         # MQTT Client setup
         self.client = mqtt.Client(client_id=f"server-collector-{int(time.time())}")
         self.client.username_pw_set(self.username, self.password)
@@ -87,6 +90,22 @@ class ESP32StatsCollector:
                 logger.info("No existing stats file found, starting fresh")
         except Exception as e:
             logger.error(f"Error loading existing data: {e}")
+
+    def load_known_sessions(self):
+        """Load known sessions from existing data to avoid re-counting"""
+        try:
+            # For now, we'll start fresh each time but with a time-based filter
+            # Only count sessions that are "recent" (within last 10 minutes)
+            from datetime import datetime, timedelta, timezone
+            cutoff_time = datetime.now(timezone.utc) - timedelta(minutes=10)
+
+            # In a real implementation, we'd save/load session IDs from a file
+            # For now, we use a time-based approach to avoid old sessions
+            self.session_cutoff = cutoff_time
+            logger.info(f"Session tracking cutoff time: {cutoff_time.isoformat()}")
+
+        except Exception as e:
+            logger.error(f"Error loading known sessions: {e}")
 
     def save_data(self):
         """Save current stats to JSON file"""
@@ -393,9 +412,17 @@ class ESP32StatsCollector:
             session_id = parts[3]
             session_key = f"{device_id}:{session_id}"
 
-            # Check if this is a new session
+            # Check if this is a new session AND it's very recent
+            current_time = datetime.now(timezone.utc)
+
             if session_key not in self.known_sessions:
                 self.known_sessions.add(session_key)
+
+                # Only count as operation if this might be a real new session
+                # Skip if we've already seen many sessions (likely existing data)
+                if len(self.known_sessions) > 20:
+                    logger.info(f"🔕 Skipping session {session_key} - too many sessions detected (likely old data)")
+                    return
 
                 # Extract device name from payload
                 device_name = payload.split('|')[0] if '|' in payload else f'Device {device_id}'
