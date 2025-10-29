@@ -304,6 +304,7 @@
                 <h2>Devices</h2>
                 <div style="display: flex; gap: 0.5rem;">
                     <button class="refresh-btn" onclick="refreshData()">🔄 Refresh</button>
+                    <button class="refresh-btn" onclick="showUpdateData()" style="background: #2196F3; color: white;">📊 Show GitHub Data</button>
                     <button class="refresh-btn" onclick="resetStatistics()" style="background: #ff4444; color: white;">🗑️ Reset</button>
                 </div>
             </div>
@@ -405,40 +406,67 @@
             }
         }
 
-        // GitHub API configuration
-        const GITHUB_TOKEN = 'your_github_token_here'; // Will need to be set
-        const GITHUB_REPO = 'Mindenhato1998/pierre-esp32-flasher-stats';
-        const DATA_FILE_PATH = 'stats-data.json';
+        // Simple update tracking - will use external webhook for GitHub updates
+        let lastUpdateData = null;
+        let updateTimeout = null;
 
-        // Save data to GitHub file (throttled to avoid rate limits)
-        let saveTimeout = null;
         function saveToStorage() {
-            // Throttle saves to max once per 30 seconds
-            if (saveTimeout) clearTimeout(saveTimeout);
-            saveTimeout = setTimeout(async () => {
-                try {
-                    console.log('Saving data to GitHub...');
+            // Store data locally for now and trigger external update
+            try {
+                // Convert Map to object for JSON storage
+                const devicesObject = Object.fromEntries(deviceStats.entries());
 
-                    // Convert Map to object for JSON storage
-                    const devicesObject = Object.fromEntries(deviceStats.entries());
+                // Keep only last maxEvents for storage
+                const eventsToStore = events.slice(0, maxEvents);
 
-                    // Keep only last maxEvents for storage
-                    const eventsToStore = events.slice(0, maxEvents);
+                const dataToSave = {
+                    devices: devicesObject,
+                    events: eventsToStore,
+                    lastUpdate: new Date().toISOString(),
+                    version: "1.0"
+                };
 
-                    const dataToSave = {
-                        devices: devicesObject,
-                        events: eventsToStore,
-                        lastUpdate: new Date().toISOString(),
-                        version: "1.0"
-                    };
+                lastUpdateData = dataToSave;
 
-                    // For now, just log what would be saved (GitHub API needs token)
-                    console.log('Data to save:', JSON.stringify(dataToSave, null, 2));
+                // Throttle external updates to max once per 30 seconds
+                if (updateTimeout) clearTimeout(updateTimeout);
+                updateTimeout = setTimeout(() => {
+                    triggerGitHubUpdate();
+                }, 30000);
 
-                } catch (e) {
-                    console.error('Error saving to GitHub:', e);
-                }
-            }, 30000); // 30 second throttle
+                console.log('Data prepared for GitHub update:', Object.keys(dataToSave.devices).length, 'devices,', dataToSave.events.length, 'events');
+
+            } catch (e) {
+                console.error('Error preparing data for save:', e);
+            }
+        }
+
+        // Trigger GitHub file update via webhook or manual process
+        function triggerGitHubUpdate() {
+            if (!lastUpdateData) return;
+
+            console.log('🔄 Triggering GitHub update...');
+            console.log('📊 Stats to update:', JSON.stringify(lastUpdateData, null, 2));
+
+            // For now, just log the data that should be updated
+            // In production, this would call a webhook or GitHub API
+            displayUpdateNotification();
+        }
+
+        // Show update notification
+        function displayUpdateNotification() {
+            const notification = document.createElement('div');
+            notification.style.cssText = `
+                position: fixed; top: 20px; right: 20px;
+                background: #4CAF50; color: white; padding: 12px 20px;
+                border-radius: 5px; z-index: 1000; font-size: 14px;
+            `;
+            notification.textContent = '📊 Stats updated - GitHub file sync pending';
+            document.body.appendChild(notification);
+
+            setTimeout(() => {
+                document.body.removeChild(notification);
+            }, 3000);
         }
 
         // Initialize
@@ -837,6 +865,54 @@
                     statusEl.className = 'connection-status disconnected';
                     break;
             }
+        }
+
+        // Show current data for GitHub update
+        function showUpdateData() {
+            if (!lastUpdateData) {
+                // Prepare data if not available
+                const devicesObject = Object.fromEntries(deviceStats.entries());
+                const eventsToStore = events.slice(0, maxEvents);
+                lastUpdateData = {
+                    devices: devicesObject,
+                    events: eventsToStore,
+                    lastUpdate: new Date().toISOString(),
+                    version: "1.0"
+                };
+            }
+
+            // Create modal dialog
+            const modal = document.createElement('div');
+            modal.style.cssText = `
+                position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+                background: rgba(0,0,0,0.8); z-index: 2000;
+                display: flex; align-items: center; justify-content: center;
+            `;
+
+            const content = document.createElement('div');
+            content.style.cssText = `
+                background: #1a1a1a; padding: 20px; border-radius: 10px;
+                max-width: 90%; max-height: 90%; overflow: auto;
+                color: white;
+            `;
+
+            content.innerHTML = `
+                <h3>📊 Current Stats Data for GitHub</h3>
+                <p>Copy this content to stats-data.json manually:</p>
+                <textarea style="width: 600px; height: 400px; background: #2a2a2a; color: #00ff00; border: 1px solid #444; padding: 10px; font-family: monospace;" readonly>${JSON.stringify(lastUpdateData, null, 2)}</textarea>
+                <br><br>
+                <button onclick="document.body.removeChild(this.parentElement.parentElement)" style="background: #ff4444; color: white; border: none; padding: 10px 20px; border-radius: 5px; cursor: pointer;">Close</button>
+            `;
+
+            modal.appendChild(content);
+            document.body.appendChild(modal);
+
+            // Close on background click
+            modal.addEventListener('click', (e) => {
+                if (e.target === modal) {
+                    document.body.removeChild(modal);
+                }
+            });
         }
 
         function formatTime(date) {
