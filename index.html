@@ -495,8 +495,8 @@
             try {
                 console.log('🔄 GitHub stats-data.json frissítése...');
 
-                // Get current file SHA
-                const getResponse = await fetch(`https://api.github.com/repos/${GITHUB_REPO}/contents/${DATA_FILE_PATH}`, {
+                // Get current file SHA with fresh request
+                const getResponse = await fetch(`https://api.github.com/repos/${GITHUB_REPO}/contents/${DATA_FILE_PATH}?ref=main&t=${Date.now()}`, {
                     headers: {
                         'Authorization': `token ${token}`,
                         'Accept': 'application/vnd.github.v3+json'
@@ -509,6 +509,7 @@
 
                 const fileInfo = await getResponse.json();
                 const currentSha = fileInfo.sha;
+                console.log(`📋 Friss SHA használata: ${currentSha}`);
 
                 // Encode content for GitHub API
                 const content = JSON.stringify(data, null, 2);
