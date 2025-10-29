@@ -364,8 +364,8 @@
             try {
                 console.log('📥 Loading data from GitHub...');
 
-                // Try GitHub API first (more up to date than raw)
-                const token = getGitHubToken();
+                // Try GitHub API first (more up to date than raw) - only if token already exists
+                const token = GITHUB_TOKEN; // Don't prompt yet, just use if already exists
                 if (token) {
                     try {
                         const apiResponse = await fetch(`https://api.github.com/repos/${GITHUB_REPO}/contents/${DATA_FILE_PATH}`, {
@@ -569,11 +569,15 @@
 
         // Initialize
         document.addEventListener('DOMContentLoaded', function() {
-            loadStoredData(); // Load stored data first
+            // Start MQTT connection immediately
             connectMQTT();
             setupSearch();
-            updateDisplay(); // Show loaded data immediately
-            updateEventsDisplay(); // Show loaded events immediately
+
+            // Load stored data in background (async)
+            loadStoredData().then(() => {
+                updateDisplay(); // Show loaded data when ready
+                updateEventsDisplay(); // Show loaded events when ready
+            });
 
             // Refresh data every 30 seconds
             setInterval(refreshData, 30000);
@@ -586,6 +590,7 @@
 
         function connectMQTT() {
             try {
+                console.log('🔄 MQTT kapcsolódás indítása...');
                 updateConnectionStatus('connecting');
 
                 const clientId = 'pierre-stats-' + Math.random().toString(36).substr(2, 9);
@@ -600,7 +605,7 @@
                 });
 
                 mqttClient.on('connect', function() {
-                    console.log('Connected to MQTT broker');
+                    console.log('✅ MQTT kapcsolat sikeres!');
                     updateConnectionStatus('connected');
 
                     // Subscribe to statistics topics
