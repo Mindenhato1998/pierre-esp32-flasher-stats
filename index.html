@@ -370,8 +370,8 @@
                     devicesArray.forEach(([name, data]) => {
                         // Convert lastSeen back to Date object
                         data.lastSeen = new Date(data.lastSeen);
-                        // Initialize online status - will be set by real-time LWT messages
-                        data.online = false;
+                        // Preserve stored online status, default to false if not set
+                        data.online = data.online || false;
                         deviceStats.set(name, data);
                     });
                     console.log('Loaded', deviceStats.size, 'devices from storage');
