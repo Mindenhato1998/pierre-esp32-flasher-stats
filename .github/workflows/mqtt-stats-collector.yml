@@ -1,9 +1,9 @@
-name: ESP32 Stats Collector (Server-side)
+name: ESP32 Stats Collector (Continuous)
 
 on:
-  # Run every 15 minutes to collect MQTT messages (fits in free GitHub Actions limit)
+  # Run every minute for continuous monitoring
   schedule:
-    - cron: '*/15 * * * *'
+    - cron: '* * * * *'
 
   # Allow manual trigger
   workflow_dispatch:

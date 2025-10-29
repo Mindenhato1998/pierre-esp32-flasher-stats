@@ -274,7 +274,7 @@ class ESP32StatsCollector:
         if len(self.events) > self.max_events:
             self.events = self.events[:self.max_events]
 
-    def collect_for_duration(self, duration_seconds=240):  # 4 minutes
+    def collect_for_duration(self, duration_seconds=50):  # 50 seconds
         """Collect messages for specified duration"""
         logger.info(f"🚀 Starting MQTT collection for {duration_seconds} seconds...")
 
@@ -298,9 +298,9 @@ class ESP32StatsCollector:
             while time.time() - start_time < duration_seconds:
                 time.sleep(1)
 
-                # Log progress every 30 seconds
+                # Log progress every 10 seconds
                 elapsed = int(time.time() - start_time)
-                if elapsed % 30 == 0 and elapsed > 0:
+                if elapsed % 10 == 0 and elapsed > 0:
                     logger.info(f"⏱️ Progress: {elapsed}s elapsed, {self.messages_received} messages received")
 
             logger.info(f"✅ Collection completed: {self.messages_received} messages received")
@@ -328,8 +328,8 @@ def main():
     # Create collector and run
     collector = ESP32StatsCollector()
 
-    # Collect for 4 minutes (GitHub Actions has 5 minute cron limit)
-    success = collector.collect_for_duration(240)
+    # Collect for 50 seconds (runs every minute)
+    success = collector.collect_for_duration(50)
 
     if success:
         logger.info("✅ Stats collection completed successfully")
