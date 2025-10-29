@@ -25,11 +25,15 @@ class ESP32StatsCollector:
         self.username = os.getenv('HIVEMQ_USERNAME')
         self.password = os.getenv('HIVEMQ_PASSWORD')
 
-        # Topics to subscribe
+        # Topics to subscribe - based on actual Android app behavior
         self.topics = [
-            'pierre/stats/+/+',      # Stats messages
-            'pierre/status/+/+',     # Device online/offline
-            'pierre/serial/+/+/info' # Device info
+            'pierre/serial/+/+/info',   # Device info (name|battery)
+            'pierre/serial/+/+/count',  # Operation counts
+            'pierre/serial/+/+/status', # Connection status
+            'pierre/serial/+/+/config', # Configuration
+            'pierre/stats/+/+',         # Legacy stats messages (just in case)
+            'pierre/status/+/+',        # Device online/offline
+            'pierre/#'                  # Complete wildcard for debugging
         ]
 
         # Data storage
@@ -37,6 +41,9 @@ class ESP32StatsCollector:
         self.device_stats = {}
         self.events = []
         self.max_events = 100
+
+        # Count tracking for flash/erase operations
+        self.device_counts = {}  # Track last known count per device
 
         # Connection tracking
         self.connected = False
@@ -134,6 +141,10 @@ class ESP32StatsCollector:
 
             if topic.startswith('pierre/stats/'):
                 self.handle_stats_message(topic, payload)
+            elif '/count' in topic:
+                self.handle_count_message(topic, payload)
+            elif '/status' in topic and 'pierre/serial/' in topic:
+                self.handle_serial_status_message(topic, payload)
             elif topic.startswith('pierre/status/'):
                 self.handle_status_message(topic, payload)
             elif '/info' in topic:
@@ -258,6 +269,92 @@ class ESP32StatsCollector:
 
         except Exception as e:
             logger.error(f"Error handling info message: {e}")
+
+    def handle_count_message(self, topic, payload):
+        """Handle count messages from pierre/serial/{deviceId}/{sessionId}/count"""
+        try:
+            # Topic format: pierre/serial/{deviceId}/{sessionId}/count
+            parts = topic.split('/')
+            if len(parts) < 4:
+                return
+
+            device_id = parts[2]
+            session_id = parts[3]
+            count_value = int(payload)
+
+            # Find device by deviceId to get the device name
+            device_name = None
+            for name, device_data in self.device_stats.items():
+                if device_data.get('lastDeviceId') == device_id:
+                    device_name = name
+                    break
+
+            if not device_name:
+                device_name = f'Device {device_id}'
+
+            # Track count changes
+            device_key = f"{device_id}:{session_id}"
+            previous_count = self.device_counts.get(device_key, 0)
+
+            if count_value > previous_count:
+                # Initialize device if not exists
+                if device_name not in self.device_stats:
+                    self.device_stats[device_name] = {
+                        'flashCount': 0,
+                        'eraseCount': 0,
+                        'lastSeen': datetime.now(timezone.utc).isoformat(),
+                        'online': False,
+                        'lastDeviceId': device_id,
+                        'appVersion': 'unknown'
+                    }
+
+                device = self.device_stats[device_name]
+                device['lastSeen'] = datetime.now(timezone.utc).isoformat()
+                device['lastDeviceId'] = device_id
+
+                # Assume count increases are flash operations (most common)
+                operations_performed = count_value - previous_count
+                device['flashCount'] += operations_performed
+
+                self.add_event('flash', f'{device_name} completed {operations_performed} flash operation(s)', device_name)
+                logger.info(f"📊 {device_name} count increased from {previous_count} to {count_value} (+{operations_performed} flash ops)")
+                self.data_changed = True
+
+            # Update stored count
+            self.device_counts[device_key] = count_value
+
+        except ValueError:
+            logger.error(f"Invalid count value: {payload}")
+        except Exception as e:
+            logger.error(f"Error handling count message: {e}")
+
+    def handle_serial_status_message(self, topic, payload):
+        """Handle status messages from pierre/serial/{deviceId}/{sessionId}/status"""
+        try:
+            # Topic format: pierre/serial/{deviceId}/{sessionId}/status
+            parts = topic.split('/')
+            if len(parts) < 4:
+                return
+
+            device_id = parts[2]
+            status = payload.strip()  # connected, disconnected, etc.
+            is_online = (status == 'connected')
+
+            # Find device by deviceId and update status
+            for device_name, device_data in self.device_stats.items():
+                if device_data.get('lastDeviceId') == device_id:
+                    if device_data['online'] != is_online:
+                        device_data['online'] = is_online
+                        device_data['lastSeen'] = datetime.now(timezone.utc).isoformat()
+
+                        status_msg = "connected" if is_online else "disconnected"
+                        self.add_event('info', f'{device_name} {status_msg}', device_name)
+                        logger.info(f"📱 {device_name} is now {status_msg}")
+                        self.data_changed = True
+                    break
+
+        except Exception as e:
+            logger.error(f"Error handling serial status message: {e}")
 
     def add_event(self, event_type, message, device_name):
         """Add event to the events list"""
