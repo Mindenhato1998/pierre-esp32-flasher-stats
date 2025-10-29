@@ -444,6 +444,7 @@
         let updateTimeout = null;
         let isUpdating = false;
         const SESSION_ID = Math.random().toString(36).substr(2, 9); // Unique session for this tab
+        let latestDataToSave = null; // Store latest data for delayed upload
 
         // Get token on first use
         function getGitHubToken() {
@@ -472,11 +473,18 @@
                     version: "1.0"
                 };
 
-                // Update GitHub with longer delay to avoid conflicts (10 seconds)
-                if (updateTimeout) clearTimeout(updateTimeout);
-                updateTimeout = setTimeout(async () => {
-                    await updateGitHubFile(dataToSave);
-                }, 10000);
+                // Store latest data and schedule upload if not already scheduled
+                latestDataToSave = dataToSave;
+
+                if (!updateTimeout) {
+                    console.log('⏰ GitHub frissítés ütemezve 10 másodperc múlva...');
+                    updateTimeout = setTimeout(async () => {
+                        await updateGitHubFile(latestDataToSave); // Use latest data
+                        updateTimeout = null; // Reset timeout after completion
+                    }, 10000);
+                } else {
+                    console.log('⏳ GitHub frissítés már ütemezve, legfrissebb adatokkal frissítve...');
+                }
 
                 console.log('📊 Adatok készítve GitHub frissítéshez:', Object.keys(dataToSave.devices).length, 'eszköz,', dataToSave.events.length, 'esemény');
 
