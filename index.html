@@ -406,17 +406,32 @@
             }
         }
 
-        // Simple update tracking - will use external webhook for GitHub updates
-        let lastUpdateData = null;
+        // GitHub API configuration
+        const GITHUB_REPO = 'Mindenhato1998/pierre-esp32-flasher-stats';
+        const DATA_FILE_PATH = 'stats-data.json';
+
+        let GITHUB_TOKEN = localStorage.getItem('github-token');
         let updateTimeout = null;
+        let isUpdating = false;
+
+        // Get token on first use
+        function getGitHubToken() {
+            if (!GITHUB_TOKEN) {
+                GITHUB_TOKEN = prompt('🔑 GitHub Personal Access Token (egyszeri beállítás):');
+                if (GITHUB_TOKEN && GITHUB_TOKEN.startsWith('ghp_')) {
+                    localStorage.setItem('github-token', GITHUB_TOKEN);
+                    console.log('✅ GitHub token mentve!');
+                } else {
+                    console.error('❌ Érvénytelen GitHub token!');
+                    return null;
+                }
+            }
+            return GITHUB_TOKEN;
+        }
 
         function saveToStorage() {
-            // Store data locally for now and trigger external update
             try {
-                // Convert Map to object for JSON storage
                 const devicesObject = Object.fromEntries(deviceStats.entries());
-
-                // Keep only last maxEvents for storage
                 const eventsToStore = events.slice(0, maxEvents);
 
                 const dataToSave = {
@@ -426,47 +441,98 @@
                     version: "1.0"
                 };
 
-                lastUpdateData = dataToSave;
-
-                // Throttle external updates to max once per 30 seconds
+                // Throttle GitHub updates to once per 10 seconds
                 if (updateTimeout) clearTimeout(updateTimeout);
-                updateTimeout = setTimeout(() => {
-                    triggerGitHubUpdate();
-                }, 30000);
+                updateTimeout = setTimeout(async () => {
+                    await updateGitHubFile(dataToSave);
+                }, 10000);
 
-                console.log('Data prepared for GitHub update:', Object.keys(dataToSave.devices).length, 'devices,', dataToSave.events.length, 'events');
+                console.log('📊 Adatok készítve GitHub frissítéshez:', Object.keys(dataToSave.devices).length, 'eszköz,', dataToSave.events.length, 'esemény');
 
             } catch (e) {
-                console.error('Error preparing data for save:', e);
+                console.error('Hiba az adatok előkészítésében:', e);
             }
         }
 
-        // Trigger GitHub file update via webhook or manual process
-        function triggerGitHubUpdate() {
-            if (!lastUpdateData) return;
+        // Update GitHub file via API
+        async function updateGitHubFile(data) {
+            if (isUpdating) return;
+            const token = getGitHubToken();
+            if (!token) return;
 
-            console.log('🔄 Triggering GitHub update...');
-            console.log('📊 Stats to update:', JSON.stringify(lastUpdateData, null, 2));
+            isUpdating = true;
 
-            // For now, just log the data that should be updated
-            // In production, this would call a webhook or GitHub API
-            displayUpdateNotification();
+            try {
+                console.log('🔄 GitHub stats-data.json frissítése...');
+
+                // Get current file SHA
+                const getResponse = await fetch(`https://api.github.com/repos/${GITHUB_REPO}/contents/${DATA_FILE_PATH}`, {
+                    headers: {
+                        'Authorization': `token ${token}`,
+                        'Accept': 'application/vnd.github.v3+json'
+                    }
+                });
+
+                if (!getResponse.ok) {
+                    throw new Error(`Fájl lekérése sikertelen: ${getResponse.status}`);
+                }
+
+                const fileInfo = await getResponse.json();
+                const currentSha = fileInfo.sha;
+
+                // Encode content for GitHub API
+                const content = JSON.stringify(data, null, 2);
+                const encodedContent = btoa(unescape(encodeURIComponent(content)));
+
+                // Update file
+                const updateResponse = await fetch(`https://api.github.com/repos/${GITHUB_REPO}/contents/${DATA_FILE_PATH}`, {
+                    method: 'PUT',
+                    headers: {
+                        'Authorization': `token ${token}`,
+                        'Accept': 'application/vnd.github.v3+json',
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        message: `📊 Stats auto-update: ${Object.keys(data.devices).length} eszköz, ${data.events.length} esemény`,
+                        content: encodedContent,
+                        sha: currentSha,
+                        branch: 'main'
+                    })
+                });
+
+                if (updateResponse.ok) {
+                    console.log('✅ GitHub fájl sikeresen frissítve!');
+                    showNotification('✅ Stats automatikusan frissítve!', '#4CAF50');
+                } else {
+                    const error = await updateResponse.text();
+                    throw new Error(`Frissítés sikertelen: ${updateResponse.status} - ${error}`);
+                }
+
+            } catch (e) {
+                console.error('❌ GitHub frissítés hiba:', e);
+                showNotification(`❌ GitHub frissítés hiba: ${e.message}`, '#ff4444');
+            } finally {
+                isUpdating = false;
+            }
         }
 
-        // Show update notification
-        function displayUpdateNotification() {
+        // Show notification
+        function showNotification(message, color) {
             const notification = document.createElement('div');
             notification.style.cssText = `
                 position: fixed; top: 20px; right: 20px;
-                background: #4CAF50; color: white; padding: 12px 20px;
+                background: ${color}; color: white; padding: 12px 20px;
                 border-radius: 5px; z-index: 1000; font-size: 14px;
+                box-shadow: 0 4px 8px rgba(0,0,0,0.3);
             `;
-            notification.textContent = '📊 Stats updated - GitHub file sync pending';
+            notification.textContent = message;
             document.body.appendChild(notification);
 
             setTimeout(() => {
-                document.body.removeChild(notification);
-            }, 3000);
+                if (document.body.contains(notification)) {
+                    document.body.removeChild(notification);
+                }
+            }, 5000);
         }
 
         // Initialize
