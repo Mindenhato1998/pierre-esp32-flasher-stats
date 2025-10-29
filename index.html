@@ -351,7 +351,7 @@
         const STATUS_TOPIC = 'pierre/status/+/+'; // For LWT-based online/offline status
 
         let mqttClient = null;
-        let deviceStats = new Map(); // deviceName -> {flashCount, eraseCount, lastSeen, lastOnline, online, lastDeviceId}
+        let deviceStats = new Map(); // deviceName -> {flashCount, eraseCount, lastSeen, lastOnline, online, lastDeviceId, appVersion}
         let events = [];
         let maxEvents = 50;
 
@@ -372,6 +372,8 @@
                         data.lastSeen = new Date(data.lastSeen);
                         // Preserve stored online status, default to false if not set
                         data.online = data.online || false;
+                        // Ensure appVersion field exists
+                        data.appVersion = data.appVersion || 'unknown';
                         deviceStats.set(name, data);
                     });
                     console.log('Loaded', deviceStats.size, 'devices from storage');
@@ -517,7 +519,8 @@
                             eraseCount: 0,
                             lastSeen: new Date(),
                             online: false, // Will be set by LWT messages
-                            lastDeviceId: deviceId
+                            lastDeviceId: deviceId,
+                            appVersion: 'unknown'
                         });
                     }
 
@@ -525,6 +528,10 @@
                     // Update lastSeen for stats tracking, but don't change online status
                     device.lastSeen = new Date(data.timestamp || Date.now());
                     device.lastDeviceId = deviceId; // Track latest deviceId
+                    // Update app version if available
+                    if (data.app_version) {
+                        device.appVersion = data.app_version;
+                    }
 
                     // Update counters based on event
                     if (eventType === 'flash' && data.event === 'flash_success') {
@@ -578,13 +585,18 @@
                         eraseCount: 0,
                         lastSeen: new Date(),
                         online: false, // Will be set by LWT messages
-                        lastDeviceId: deviceId
+                        lastDeviceId: deviceId,
+                        appVersion: data.app_version || 'unknown'
                     });
                 } else {
                     const device = deviceStats.get(deviceName);
                     // Don't update lastSeen or online status from device info messages
                     // Only update device ID to track latest connection
                     device.lastDeviceId = deviceId; // Track latest deviceId
+                    // Update app version if available
+                    if (data.app_version) {
+                        device.appVersion = data.app_version;
+                    }
                 }
 
                 updateDisplay();
@@ -636,7 +648,8 @@
                             eraseCount: 0,
                             lastSeen: new Date(),
                             online: status === 'online',
-                            lastDeviceId: deviceId
+                            lastDeviceId: deviceId,
+                            appVersion: 'unknown'
                         });
                     } else {
                         const device = deviceStats.get(placeholderName);
@@ -732,7 +745,12 @@
                             <span class="status-indicator ${statusClass}"></span>
                             ${statusText}
                         </td>
-                        <td>${deviceName}</td>
+                        <td>
+                            ${deviceName}
+                            <span style="color: #888; font-size: 0.8em; margin-left: 8px;">
+                                v${device.appVersion || 'unknown'}
+                            </span>
+                        </td>
                         <td>${device.flashCount}</td>
                         <td>${device.eraseCount}</td>
                         <td>${formatTime(device.lastSeen)}</td>
