@@ -689,9 +689,10 @@
                     continue;
                 }
 
-                const isOnline = device.lastSeen > fiveMinutesAgo;
+                // Use LWT online status instead of lastSeen timeout
+                const isOnline = device.online || false;
                 const statusClass = isOnline ? 'status-online' : 'status-offline';
-                const statusText = isOnline ? 'Online' : 'Offline';
+                const statusText = isOnline ? '🟢 Online' : '🔴 Offline';
 
                 html += `
                     <tr>
