@@ -540,6 +540,8 @@
                     } else if (eventType === 'erase' && data.event === 'erase_success') {
                         device.eraseCount++;
                         addEvent('erase', `${deviceName} completed erase operation`, deviceName);
+                    } else if (eventType === 'device' && data.event === 'device_online') {
+                        addEvent('info', `${deviceName} connected`, deviceName);
                     } else if (data.event && data.event.includes('error')) {
                         addEvent('error', `${deviceName} error during ${eventType}`, deviceName);
                     }
