@@ -49,15 +49,21 @@
       "appVersion": "unknown"
     },
     "Test Device Galaxy S21": {
-      "flashCount": 45,
+      "flashCount": 46,
       "eraseCount": 0,
-      "lastSeen": "2025-10-29T10:52:00.597Z",
+      "lastSeen": "2025-10-29T11:03:21.544Z",
       "online": false,
       "lastDeviceId": "test-device-123",
       "appVersion": "2.0.31"
     }
   },
   "events": [
+    {
+      "type": "flash",
+      "message": "Test Device Galaxy S21 completed flash operation",
+      "deviceName": "Test Device Galaxy S21",
+      "timestamp": "2025-10-29T11:03:21.626Z"
+    },
     {
       "type": "flash",
       "message": "Test Device Galaxy S21 completed flash operation",
@@ -329,6 +335,6 @@
       "timestamp": "2025-10-29T09:46:16.188Z"
     }
   ],
-  "lastUpdate": "2025-10-29T11:03:02.364Z",
+  "lastUpdate": "2025-10-29T11:03:23.144Z",
   "version": "1.0"
 }
