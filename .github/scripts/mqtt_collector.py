@@ -420,7 +420,7 @@ class ESP32StatsCollector:
 
                 # Only count as operation if this might be a real new session
                 # Skip if we've already seen many sessions (likely existing data)
-                if len(self.known_sessions) > 20:
+                if len(self.known_sessions) > 5:
                     logger.info(f"🔕 Skipping session {session_key} - too many sessions detected (likely old data)")
                     return
 
