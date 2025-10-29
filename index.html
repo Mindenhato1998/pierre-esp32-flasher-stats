@@ -316,7 +316,7 @@
                             <th>Device Name</th>
                             <th>Flash Count</th>
                             <th>Erase Count</th>
-                            <th>Last Seen</th>
+                            <th>Last interaction</th>
                             <th>Device ID</th>
                         </tr>
                     </thead>
@@ -351,7 +351,7 @@
         const STATUS_TOPIC = 'pierre/status/+/+'; // For LWT-based online/offline status
 
         let mqttClient = null;
-        let deviceStats = new Map(); // deviceName -> {flashCount, eraseCount, lastSeen, online, lastDeviceId}
+        let deviceStats = new Map(); // deviceName -> {flashCount, eraseCount, lastSeen, lastOnline, online, lastDeviceId}
         let events = [];
         let maxEvents = 50;
 
@@ -692,7 +692,7 @@
                 // Use LWT online status instead of lastSeen timeout
                 const isOnline = device.online || false;
                 const statusClass = isOnline ? 'status-online' : 'status-offline';
-                const statusText = isOnline ? '🟢 Online' : '🔴 Offline';
+                const statusText = isOnline ? '🟢' : '🔴';
 
                 html += `
                     <tr>
