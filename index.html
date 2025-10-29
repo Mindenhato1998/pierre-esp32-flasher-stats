@@ -494,6 +494,22 @@
                     const data = JSON.parse(message);
                     const deviceName = data.device_name || 'Unknown Device';
 
+                    // Check if there's an existing placeholder device with this deviceId
+                    let existingPlaceholder = null;
+                    deviceStats.forEach((device, name) => {
+                        if (name.startsWith('Device ') && device.lastDeviceId === deviceId) {
+                            existingPlaceholder = name;
+                        }
+                    });
+
+                    // If placeholder exists, replace it with real device name
+                    if (existingPlaceholder && existingPlaceholder !== deviceName) {
+                        const placeholderData = deviceStats.get(existingPlaceholder);
+                        deviceStats.delete(existingPlaceholder);
+                        deviceStats.set(deviceName, placeholderData);
+                        console.log(`Replaced placeholder "${existingPlaceholder}" with real name "${deviceName}"`);
+                    }
+
                     // Group by device name instead of deviceId
                     if (!deviceStats.has(deviceName)) {
                         deviceStats.set(deviceName, {
@@ -538,6 +554,22 @@
                 const deviceId = parts[2];
                 const infoParts = message.split('|');
                 const deviceName = infoParts[0] || 'Unknown Device';
+
+                // Check if there's an existing placeholder device with this deviceId
+                let existingPlaceholder = null;
+                deviceStats.forEach((device, name) => {
+                    if (name.startsWith('Device ') && device.lastDeviceId === deviceId) {
+                        existingPlaceholder = name;
+                    }
+                });
+
+                // If placeholder exists, replace it with real device name
+                if (existingPlaceholder && existingPlaceholder !== deviceName) {
+                    const placeholderData = deviceStats.get(existingPlaceholder);
+                    deviceStats.delete(existingPlaceholder);
+                    deviceStats.set(deviceName, placeholderData);
+                    console.log(`Replaced placeholder "${existingPlaceholder}" with real name "${deviceName}"`);
+                }
 
                 // Group by device name instead of deviceId
                 if (!deviceStats.has(deviceName)) {
@@ -692,7 +724,7 @@
                 // Use LWT online status instead of lastSeen timeout
                 const isOnline = device.online || false;
                 const statusClass = isOnline ? 'status-online' : 'status-offline';
-                const statusText = isOnline ? '🟢' : '🔴';
+                const statusText = isOnline ? 'Online' : 'Offline';
 
                 html += `
                     <tr>
