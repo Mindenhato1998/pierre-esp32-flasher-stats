@@ -362,48 +362,85 @@
         // Load data from GitHub file on startup
         async function loadStoredData() {
             try {
-                console.log('Loading data from GitHub...');
-                const response = await fetch('https://raw.githubusercontent.com/Mindenhato1998/pierre-esp32-flasher-stats/main/stats-data.json');
+                // First, check for local data (in case of recent updates not yet synced to GitHub)
+                const localDataStr = localStorage.getItem('pierre-stats-data');
+                let localData = null;
+                let localLastUpdate = null;
+
+                if (localDataStr) {
+                    try {
+                        localData = JSON.parse(localDataStr);
+                        localLastUpdate = new Date(localData.lastUpdate);
+                        console.log('📱 Found local data, last update:', localLastUpdate.toISOString());
+                    } catch (e) {
+                        console.log('❌ Invalid local data, will load from GitHub');
+                    }
+                }
+
+                // Load from GitHub
+                console.log('📥 Loading data from GitHub...');
+                const response = await fetch('https://raw.githubusercontent.com/Mindenhato1998/pierre-esp32-flasher-stats/main/stats-data.json?t=' + Date.now());
 
                 if (!response.ok) {
-                    console.log('No GitHub data found, starting fresh');
+                    console.log('❌ No GitHub data found');
+                    if (localData) {
+                        console.log('📱 Using local data as fallback');
+                        loadDataFromObject(localData);
+                        return;
+                    }
+                    console.log('🆕 Starting fresh');
                     return;
                 }
 
-                const data = await response.json();
+                const githubData = await response.json();
+                const githubLastUpdate = new Date(githubData.lastUpdate);
+                console.log('☁️ GitHub data last update:', githubLastUpdate.toISOString());
 
-                // Load devices
-                if (data.devices) {
-                    deviceStats.clear();
-                    Object.entries(data.devices).forEach(([name, deviceData]) => {
-                        // Convert lastSeen back to Date object
-                        deviceData.lastSeen = new Date(deviceData.lastSeen);
-                        // Preserve stored online status, default to false if not set
-                        deviceData.online = deviceData.online || false;
-                        // Ensure appVersion field exists
-                        deviceData.appVersion = deviceData.appVersion || 'unknown';
-                        deviceStats.set(name, deviceData);
-                    });
-                    console.log('Loaded', deviceStats.size, 'devices from GitHub');
+                // Use the newer data
+                let dataToUse = githubData;
+                if (localData && localLastUpdate > githubLastUpdate) {
+                    console.log('📱 Local data is newer, using local data');
+                    dataToUse = localData;
+                } else {
+                    console.log('☁️ GitHub data is newer or equal, using GitHub data');
                 }
 
-                // Load events
-                if (data.events) {
-                    events.length = 0; // Clear array
-                    data.events.forEach(event => {
-                        // Convert timestamp back to Date object
-                        event.timestamp = new Date(event.timestamp);
-                        events.push(event);
-                    });
-                    console.log('Loaded', events.length, 'events from GitHub');
-                }
-
-                updateDisplay();
+                loadDataFromObject(dataToUse);
 
             } catch (e) {
-                console.error('Error loading from GitHub:', e);
-                console.log('Starting with empty data');
+                console.error('❌ Error loading data:', e);
+                console.log('🆕 Starting with empty data');
             }
+        }
+
+        function loadDataFromObject(data) {
+            // Load devices
+            if (data.devices) {
+                deviceStats.clear();
+                Object.entries(data.devices).forEach(([name, deviceData]) => {
+                    // Convert lastSeen back to Date object
+                    deviceData.lastSeen = new Date(deviceData.lastSeen);
+                    // Preserve stored online status, default to false if not set
+                    deviceData.online = deviceData.online || false;
+                    // Ensure appVersion field exists
+                    deviceData.appVersion = deviceData.appVersion || 'unknown';
+                    deviceStats.set(name, deviceData);
+                });
+                console.log('📊 Loaded', deviceStats.size, 'devices');
+            }
+
+            // Load events
+            if (data.events) {
+                events.length = 0; // Clear array
+                data.events.forEach(event => {
+                    // Convert timestamp back to Date object
+                    event.timestamp = new Date(event.timestamp);
+                    events.push(event);
+                });
+                console.log('📝 Loaded', events.length, 'events');
+            }
+
+            updateDisplay();
         }
 
         // GitHub API configuration
@@ -440,6 +477,10 @@
                     lastUpdate: new Date().toISOString(),
                     version: "1.0"
                 };
+
+                // Save to localStorage immediately for instant access on refresh
+                localStorage.setItem('pierre-stats-data', JSON.stringify(dataToSave));
+                console.log('💾 Helyi mentés kész:', Object.keys(dataToSave.devices).length, 'eszköz,', dataToSave.events.length, 'esemény');
 
                 // Throttle GitHub updates to once per 10 seconds
                 if (updateTimeout) clearTimeout(updateTimeout);
