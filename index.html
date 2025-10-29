@@ -358,55 +358,87 @@
         // Password for reset functionality
         const RESET_PASSWORD = "Pierre2k23";
 
-        // Load data from localStorage on startup
-        function loadStoredData() {
+        // Load data from GitHub file on startup
+        async function loadStoredData() {
             try {
-                const storedDevices = localStorage.getItem('pierre-stats-devices');
-                const storedEvents = localStorage.getItem('pierre-stats-events');
+                console.log('Loading data from GitHub...');
+                const response = await fetch('https://raw.githubusercontent.com/Mindenhato1998/pierre-esp32-flasher-stats/main/stats-data.json');
 
-                if (storedDevices) {
-                    const devicesArray = JSON.parse(storedDevices);
-                    deviceStats.clear();
-                    devicesArray.forEach(([name, data]) => {
-                        // Convert lastSeen back to Date object
-                        data.lastSeen = new Date(data.lastSeen);
-                        // Preserve stored online status, default to false if not set
-                        data.online = data.online || false;
-                        // Ensure appVersion field exists
-                        data.appVersion = data.appVersion || 'unknown';
-                        deviceStats.set(name, data);
-                    });
-                    console.log('Loaded', deviceStats.size, 'devices from storage');
+                if (!response.ok) {
+                    console.log('No GitHub data found, starting fresh');
+                    return;
                 }
 
-                if (storedEvents) {
-                    const eventsArray = JSON.parse(storedEvents);
+                const data = await response.json();
+
+                // Load devices
+                if (data.devices) {
+                    deviceStats.clear();
+                    Object.entries(data.devices).forEach(([name, deviceData]) => {
+                        // Convert lastSeen back to Date object
+                        deviceData.lastSeen = new Date(deviceData.lastSeen);
+                        // Preserve stored online status, default to false if not set
+                        deviceData.online = deviceData.online || false;
+                        // Ensure appVersion field exists
+                        deviceData.appVersion = deviceData.appVersion || 'unknown';
+                        deviceStats.set(name, deviceData);
+                    });
+                    console.log('Loaded', deviceStats.size, 'devices from GitHub');
+                }
+
+                // Load events
+                if (data.events) {
                     events.length = 0; // Clear array
-                    eventsArray.forEach(event => {
+                    data.events.forEach(event => {
                         // Convert timestamp back to Date object
                         event.timestamp = new Date(event.timestamp);
                         events.push(event);
                     });
-                    console.log('Loaded', events.length, 'events from storage');
+                    console.log('Loaded', events.length, 'events from GitHub');
                 }
+
+                updateDisplay();
+
             } catch (e) {
-                console.error('Error loading stored data:', e);
+                console.error('Error loading from GitHub:', e);
+                console.log('Starting with empty data');
             }
         }
 
-        // Save data to localStorage
-        function saveToStorage() {
-            try {
-                // Convert Map to array for JSON storage
-                const devicesArray = Array.from(deviceStats.entries());
-                localStorage.setItem('pierre-stats-devices', JSON.stringify(devicesArray));
+        // GitHub API configuration
+        const GITHUB_TOKEN = 'your_github_token_here'; // Will need to be set
+        const GITHUB_REPO = 'Mindenhato1998/pierre-esp32-flasher-stats';
+        const DATA_FILE_PATH = 'stats-data.json';
 
-                // Keep only last maxEvents for storage
-                const eventsToStore = events.slice(0, maxEvents);
-                localStorage.setItem('pierre-stats-events', JSON.stringify(eventsToStore));
-            } catch (e) {
-                console.error('Error saving to storage:', e);
-            }
+        // Save data to GitHub file (throttled to avoid rate limits)
+        let saveTimeout = null;
+        function saveToStorage() {
+            // Throttle saves to max once per 30 seconds
+            if (saveTimeout) clearTimeout(saveTimeout);
+            saveTimeout = setTimeout(async () => {
+                try {
+                    console.log('Saving data to GitHub...');
+
+                    // Convert Map to object for JSON storage
+                    const devicesObject = Object.fromEntries(deviceStats.entries());
+
+                    // Keep only last maxEvents for storage
+                    const eventsToStore = events.slice(0, maxEvents);
+
+                    const dataToSave = {
+                        devices: devicesObject,
+                        events: eventsToStore,
+                        lastUpdate: new Date().toISOString(),
+                        version: "1.0"
+                    };
+
+                    // For now, just log what would be saved (GitHub API needs token)
+                    console.log('Data to save:', JSON.stringify(dataToSave, null, 2));
+
+                } catch (e) {
+                    console.error('Error saving to GitHub:', e);
+                }
+            }, 30000); // 30 second throttle
         }
 
         // Initialize
