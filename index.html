@@ -362,50 +362,43 @@
         // Load data from GitHub file on startup
         async function loadStoredData() {
             try {
-                // First, check for local data (in case of recent updates not yet synced to GitHub)
-                const localDataStr = localStorage.getItem('pierre-stats-data');
-                let localData = null;
-                let localLastUpdate = null;
+                console.log('📥 Loading data from GitHub...');
 
-                if (localDataStr) {
+                // Try GitHub API first (more up to date than raw)
+                const token = getGitHubToken();
+                if (token) {
                     try {
-                        localData = JSON.parse(localDataStr);
-                        localLastUpdate = new Date(localData.lastUpdate);
-                        console.log('📱 Found local data, last update:', localLastUpdate.toISOString());
+                        const apiResponse = await fetch(`https://api.github.com/repos/${GITHUB_REPO}/contents/${DATA_FILE_PATH}`, {
+                            headers: {
+                                'Authorization': `token ${token}`,
+                                'Accept': 'application/vnd.github.v3+json'
+                            }
+                        });
+
+                        if (apiResponse.ok) {
+                            const apiData = await apiResponse.json();
+                            const content = atob(apiData.content.replace(/\s/g, ''));
+                            const githubData = JSON.parse(content);
+                            console.log('✅ Loaded from GitHub API (legfrissebb adat)');
+                            loadDataFromObject(githubData);
+                            return;
+                        }
                     } catch (e) {
-                        console.log('❌ Invalid local data, will load from GitHub');
+                        console.log('⚠️ GitHub API failed, trying raw URL...', e.message);
                     }
                 }
 
-                // Load from GitHub
-                console.log('📥 Loading data from GitHub...');
+                // Fallback to raw URL with cache busting
                 const response = await fetch('https://raw.githubusercontent.com/Mindenhato1998/pierre-esp32-flasher-stats/main/stats-data.json?t=' + Date.now());
 
                 if (!response.ok) {
-                    console.log('❌ No GitHub data found');
-                    if (localData) {
-                        console.log('📱 Using local data as fallback');
-                        loadDataFromObject(localData);
-                        return;
-                    }
-                    console.log('🆕 Starting fresh');
+                    console.log('❌ No GitHub data found, starting fresh');
                     return;
                 }
 
                 const githubData = await response.json();
-                const githubLastUpdate = new Date(githubData.lastUpdate);
-                console.log('☁️ GitHub data last update:', githubLastUpdate.toISOString());
-
-                // Use the newer data
-                let dataToUse = githubData;
-                if (localData && localLastUpdate > githubLastUpdate) {
-                    console.log('📱 Local data is newer, using local data');
-                    dataToUse = localData;
-                } else {
-                    console.log('☁️ GitHub data is newer or equal, using GitHub data');
-                }
-
-                loadDataFromObject(dataToUse);
+                console.log('✅ Loaded from GitHub Raw URL');
+                loadDataFromObject(githubData);
 
             } catch (e) {
                 console.error('❌ Error loading data:', e);
@@ -478,15 +471,11 @@
                     version: "1.0"
                 };
 
-                // Save to localStorage immediately for instant access on refresh
-                localStorage.setItem('pierre-stats-data', JSON.stringify(dataToSave));
-                console.log('💾 Helyi mentés kész:', Object.keys(dataToSave.devices).length, 'eszköz,', dataToSave.events.length, 'esemény');
-
-                // Throttle GitHub updates to once per 10 seconds
+                // Update GitHub quickly (2 second delay for batching)
                 if (updateTimeout) clearTimeout(updateTimeout);
                 updateTimeout = setTimeout(async () => {
                     await updateGitHubFile(dataToSave);
-                }, 10000);
+                }, 2000);
 
                 console.log('📊 Adatok készítve GitHub frissítéshez:', Object.keys(dataToSave.devices).length, 'eszköz,', dataToSave.events.length, 'esemény');
 
@@ -1064,9 +1053,7 @@
                     deviceStats.clear();
                     events.length = 0;
 
-                    // Clear localStorage
-                    localStorage.removeItem('pierre-stats-devices');
-                    localStorage.removeItem('pierre-stats-events');
+                    // No localStorage to clear - all data server-side
 
                     // Update display
                     updateDisplay();
