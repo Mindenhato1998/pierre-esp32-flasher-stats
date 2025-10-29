@@ -402,7 +402,26 @@
 
         function updateChart() {
             const now = new Date();
-            const currentDeviceCount = connectedDevices.size;
+
+            // Count unique devices (same logic as device list display)
+            const uniqueDevices = new Map();
+            connectedDevices.forEach((deviceData, deviceId) => {
+                const uniqueKey = deviceData.name && deviceData.name !== deviceId ? deviceData.name : deviceId;
+
+                if (uniqueDevices.has(uniqueKey)) {
+                    const existing = uniqueDevices.get(uniqueKey);
+                    if (deviceData.lastSeen > existing.lastSeen) {
+                        uniqueDevices.set(uniqueKey, deviceData);
+                    }
+                } else {
+                    uniqueDevices.set(uniqueKey, deviceData);
+                }
+            });
+
+            const currentDeviceCount = uniqueDevices.size;
+
+            // Debug logging
+            console.log(`📊 Chart update: ${connectedDevices.size} total sessions → ${currentDeviceCount} unique devices`);
 
             // Add current data point
             chartData.push({
