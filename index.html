@@ -252,34 +252,83 @@
         function processMessage(topic, message) {
             console.log(`📨 ${topic}: ${message}`);
 
-            // Parse topic: pierre/stats/DEVICE_ID/SESSION_ID/...
             const parts = topic.split('/');
-            if (parts.length < 4 || parts[0] !== 'pierre') return;
+            if (parts.length < 3 || parts[0] !== 'pierre') return;
 
-            const deviceId = parts[2];
+            let deviceId = null;
+            let deviceName = null;
             const now = Date.now();
 
-            // Extract device name from message if available
-            let deviceName = deviceId;
-            try {
-                if (message.includes('|')) {
-                    deviceName = message.split('|')[0];
-                } else if (message.includes('"device"')) {
-                    const parsed = JSON.parse(message);
-                    if (parsed.device) deviceName = parsed.device;
+            // Handle different topic structures
+            if (parts[1] === 'status' && parts.length >= 4) {
+                // pierre/status/DEVICE_ID/online or pierre/status/DEVICE_ID/offline
+                deviceId = parts[2];
+                const status = parts[3];
+
+                if (status === 'online') {
+                    try {
+                        // Parse JSON message from StatisticsManager
+                        const data = JSON.parse(message);
+                        deviceName = data.device_name || deviceId;
+                    } catch (e) {
+                        deviceName = message || deviceId;
+                    }
+                } else if (status === 'offline') {
+                    // Device going offline, keep in list but mark as offline
+                    if (connectedDevices.has(deviceId)) {
+                        const existing = connectedDevices.get(deviceId);
+                        connectedDevices.set(deviceId, {
+                            ...existing,
+                            lastSeen: now - 60000 // Mark as 1 minute old to show offline
+                        });
+                    }
+                    updateDeviceList();
+                    return;
                 }
-            } catch (e) {
-                // Ignore parsing errors
+            } else if (parts[1] === 'serial' && parts.length >= 5) {
+                // pierre/serial/DEVICE_ID/SESSION_ID/info
+                deviceId = parts[2];
+                const messageType = parts[4];
+
+                if (messageType === 'info' && message.includes('|')) {
+                    // Info topic format: "deviceName|batteryPct"
+                    deviceName = message.split('|')[0];
+                } else {
+                    // Keep existing name if we have it
+                    if (connectedDevices.has(deviceId)) {
+                        deviceName = connectedDevices.get(deviceId).name;
+                    } else {
+                        deviceName = deviceId;
+                    }
+                }
+            } else if (parts[1] === 'stats' && parts.length >= 4) {
+                // pierre/stats/DEVICE_ID/operation_type
+                deviceId = parts[2];
+
+                try {
+                    // Try to parse JSON stats message
+                    const data = JSON.parse(message);
+                    deviceName = data.device_name || deviceId;
+                } catch (e) {
+                    // Keep existing name or use deviceId
+                    if (connectedDevices.has(deviceId)) {
+                        deviceName = connectedDevices.get(deviceId).name;
+                    } else {
+                        deviceName = deviceId;
+                    }
+                }
             }
 
-            // Update device data
-            connectedDevices.set(deviceId, {
-                name: deviceName,
-                lastSeen: now,
-                topic: topic
-            });
+            // Update device data if we have a deviceId
+            if (deviceId) {
+                connectedDevices.set(deviceId, {
+                    name: deviceName || deviceId,
+                    lastSeen: now,
+                    topic: topic
+                });
 
-            updateDeviceList();
+                updateDeviceList();
+            }
         }
 
         function cleanupOfflineDevices() {
