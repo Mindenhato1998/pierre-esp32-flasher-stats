@@ -302,9 +302,8 @@ class ESP32StatsCollector:
             if not device_name:
                 device_name = f'Device {device_id}'
 
-            # Track count changes
-            device_key = f"{device_id}:{session_id}"
-            previous_count = self.device_counts.get(device_key, 0)
+            # Skip count tracking - we use session tracking instead
+            return
 
             if count_value > previous_count:
                 # Initialize device if not exists
