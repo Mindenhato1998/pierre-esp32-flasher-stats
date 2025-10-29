@@ -443,6 +443,7 @@
         let GITHUB_TOKEN = localStorage.getItem('github-token');
         let updateTimeout = null;
         let isUpdating = false;
+        const SESSION_ID = Math.random().toString(36).substr(2, 9); // Unique session for this tab
 
         // Get token on first use
         function getGitHubToken() {
@@ -471,11 +472,11 @@
                     version: "1.0"
                 };
 
-                // Update GitHub quickly (2 second delay for batching)
+                // Update GitHub with longer delay to avoid conflicts (10 seconds)
                 if (updateTimeout) clearTimeout(updateTimeout);
                 updateTimeout = setTimeout(async () => {
                     await updateGitHubFile(dataToSave);
-                }, 2000);
+                }, 10000);
 
                 console.log('📊 Adatok készítve GitHub frissítéshez:', Object.keys(dataToSave.devices).length, 'eszköz,', dataToSave.events.length, 'esemény');
 
@@ -524,7 +525,7 @@
                         'Content-Type': 'application/json'
                     },
                     body: JSON.stringify({
-                        message: `📊 Stats auto-update: ${Object.keys(data.devices).length} eszköz, ${data.events.length} esemény`,
+                        message: `📊 Stats auto-update: ${Object.keys(data.devices).length} eszköz, ${data.events.length} esemény [${SESSION_ID}]`,
                         content: encodedContent,
                         sha: currentSha,
                         branch: 'main'
