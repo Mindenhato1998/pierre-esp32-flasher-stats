@@ -224,21 +224,54 @@
                 return;
             }
 
-            // Create device items
+            // Group devices by unique identifier (name or ID)
+            const uniqueDevices = new Map();
+
             connectedDevices.forEach((deviceData, deviceId) => {
+                const uniqueKey = deviceData.name && deviceData.name !== deviceId ? deviceData.name : deviceId;
+
+                // If we already have this device, keep the most recent data
+                if (uniqueDevices.has(uniqueKey)) {
+                    const existing = uniqueDevices.get(uniqueKey);
+                    if (deviceData.lastSeen > existing.lastSeen) {
+                        uniqueDevices.set(uniqueKey, {
+                            ...deviceData,
+                            primaryId: deviceId,
+                            allIds: [...existing.allIds, deviceId]
+                        });
+                    } else {
+                        // Add this deviceId to the existing entry's allIds
+                        existing.allIds.push(deviceId);
+                    }
+                } else {
+                    uniqueDevices.set(uniqueKey, {
+                        ...deviceData,
+                        primaryId: deviceId,
+                        allIds: [deviceId]
+                    });
+                }
+            });
+
+            // Create device items for unique devices only
+            uniqueDevices.forEach((deviceData, uniqueKey) => {
                 const deviceItem = document.createElement('div');
                 deviceItem.className = 'device-item';
 
                 const timeSinceLastSeen = Date.now() - deviceData.lastSeen;
                 const isOnline = timeSinceLastSeen < 30000; // 30 seconds threshold
 
+                // Show primary ID, or if multiple IDs, show count
+                const idDisplay = deviceData.allIds.length > 1
+                    ? `${deviceData.allIds.length} sessions`
+                    : `ID: ${deviceData.primaryId}`;
+
                 deviceItem.innerHTML = `
                     <div class="device-name">
                         <span class="status-indicator ${isOnline ? 'status-online' : 'status-offline'}"></span>
-                        ${deviceData.name || deviceId}
+                        ${deviceData.name || deviceData.primaryId}
                     </div>
                     <div class="device-info">
-                        <span>ID: ${deviceId}</span>
+                        <span>${idDisplay}</span>
                         <span class="last-seen">
                             ${isOnline ? 'Online' : `Last seen: ${Math.floor(timeSinceLastSeen / 1000)}s ago`}
                         </span>
