@@ -272,7 +272,7 @@
     <div class="container">
         <h1>📊 Pierre ESP32 Flasher - Statistics Dashboard</h1>
 
-        <div class="connection-status" id="connectionStatus">Connecting...</div>
+        <div class="connection-status" id="connectionStatus">📊 Server Data</div>
 
         <!-- Overall Statistics -->
         <div class="stats-grid">
@@ -339,19 +339,10 @@
         </div>
     </div>
 
-    <!-- MQTT.js library -->
-    <script src="https://unpkg.com/mqtt@4.3.7/dist/mqtt.min.js"></script>
+    <!-- Server-side only - no client MQTT needed -->
 
     <script>
-        // MQTT Configuration - ugyanaz mint a jelenlegi weboldalon
-        const BROKER_URL = 'wss://0c1bf62a21e94682adf340b8a2d3fe04.s1.eu.hivemq.cloud:8884/mqtt';
-        const USERNAME = 'pierreflasher';
-        const PASSWORD = 'Pierre2k23';
-        const STATS_TOPIC = 'pierre/stats/+/+'; // pierre/stats/{deviceId}/{flash|erase}
-        const DEVICE_INFO_TOPIC = 'pierre/serial/+/+/info'; // For device names
-        const STATUS_TOPIC = 'pierre/status/+/+'; // For LWT-based online/offline status
-
-        let mqttClient = null;
+        // Server-side only data loading
         let deviceStats = new Map(); // deviceName -> {flashCount, eraseCount, lastSeen, lastOnline, online, lastDeviceId, appVersion}
         let events = [];
         let maxEvents = 50;
@@ -364,31 +355,7 @@
             try {
                 console.log('📥 Loading data from GitHub...');
 
-                // Try GitHub API first (more up to date than raw) - only if token already exists
-                const token = GITHUB_TOKEN; // Don't prompt yet, just use if already exists
-                if (token) {
-                    try {
-                        const apiResponse = await fetch(`https://api.github.com/repos/${GITHUB_REPO}/contents/${DATA_FILE_PATH}`, {
-                            headers: {
-                                'Authorization': `token ${token}`,
-                                'Accept': 'application/vnd.github.v3+json'
-                            }
-                        });
-
-                        if (apiResponse.ok) {
-                            const apiData = await apiResponse.json();
-                            const content = atob(apiData.content.replace(/\s/g, ''));
-                            const githubData = JSON.parse(content);
-                            console.log('✅ Loaded from GitHub API (legfrissebb adat)');
-                            loadDataFromObject(githubData);
-                            return;
-                        }
-                    } catch (e) {
-                        console.log('⚠️ GitHub API failed, trying raw URL...', e.message);
-                    }
-                }
-
-                // Fallback to raw URL with cache busting
+                // Direct load from GitHub raw URL with cache busting
                 const response = await fetch('https://raw.githubusercontent.com/Mindenhato1998/pierre-esp32-flasher-stats/main/stats-data.json?t=' + Date.now());
 
                 if (!response.ok) {
@@ -436,405 +403,25 @@
             updateDisplay();
         }
 
-        // GitHub API configuration
-        const GITHUB_REPO = 'Mindenhato1998/pierre-esp32-flasher-stats';
-        const DATA_FILE_PATH = 'stats-data.json';
+        // No client-side GitHub API needed - server handles everything
 
-        let GITHUB_TOKEN = localStorage.getItem('github-token');
-        let updateTimeout = null;
-        let isUpdating = false;
-        const SESSION_ID = Math.random().toString(36).substr(2, 9); // Unique session for this tab
-        let latestDataToSave = null; // Store latest data for delayed upload
-
-        // Get token on first use
-        function getGitHubToken() {
-            if (!GITHUB_TOKEN) {
-                GITHUB_TOKEN = prompt('🔑 GitHub Personal Access Token (egyszeri beállítás):');
-                if (GITHUB_TOKEN && GITHUB_TOKEN.startsWith('ghp_')) {
-                    localStorage.setItem('github-token', GITHUB_TOKEN);
-                    console.log('✅ GitHub token mentve!');
-                } else {
-                    console.error('❌ Érvénytelen GitHub token!');
-                    return null;
-                }
-            }
-            return GITHUB_TOKEN;
-        }
-
-        function saveToStorage() {
-            try {
-                const devicesObject = Object.fromEntries(deviceStats.entries());
-                const eventsToStore = events.slice(0, maxEvents);
-
-                const dataToSave = {
-                    devices: devicesObject,
-                    events: eventsToStore,
-                    lastUpdate: new Date().toISOString(),
-                    version: "1.0"
-                };
-
-                // Store latest data and schedule upload if not already scheduled
-                latestDataToSave = dataToSave;
-
-                if (!updateTimeout) {
-                    console.log('⏰ GitHub frissítés ütemezve 10 másodperc múlva...');
-                    updateTimeout = setTimeout(async () => {
-                        await updateGitHubFile(latestDataToSave); // Use latest data
-                        updateTimeout = null; // Reset timeout after completion
-                    }, 10000);
-                } else {
-                    console.log('⏳ GitHub frissítés már ütemezve, legfrissebb adatokkal frissítve...');
-                }
-
-                console.log('📊 Adatok készítve GitHub frissítéshez:', Object.keys(dataToSave.devices).length, 'eszköz,', dataToSave.events.length, 'esemény');
-
-            } catch (e) {
-                console.error('Hiba az adatok előkészítésében:', e);
-            }
-        }
-
-        // Update GitHub file via API
-        async function updateGitHubFile(data) {
-            if (isUpdating) return;
-            const token = getGitHubToken();
-            if (!token) return;
-
-            isUpdating = true;
-
-            try {
-                console.log('🔄 GitHub stats-data.json frissítése...');
-
-                // Get current file SHA with fresh request
-                const getResponse = await fetch(`https://api.github.com/repos/${GITHUB_REPO}/contents/${DATA_FILE_PATH}?ref=main&t=${Date.now()}`, {
-                    headers: {
-                        'Authorization': `token ${token}`,
-                        'Accept': 'application/vnd.github.v3+json'
-                    }
-                });
-
-                if (!getResponse.ok) {
-                    throw new Error(`Fájl lekérése sikertelen: ${getResponse.status}`);
-                }
-
-                const fileInfo = await getResponse.json();
-                const currentSha = fileInfo.sha;
-                console.log(`📋 Friss SHA használata: ${currentSha}`);
-
-                // Encode content for GitHub API
-                const content = JSON.stringify(data, null, 2);
-                const encodedContent = btoa(unescape(encodeURIComponent(content)));
-
-                // Update file
-                const updateResponse = await fetch(`https://api.github.com/repos/${GITHUB_REPO}/contents/${DATA_FILE_PATH}`, {
-                    method: 'PUT',
-                    headers: {
-                        'Authorization': `token ${token}`,
-                        'Accept': 'application/vnd.github.v3+json',
-                        'Content-Type': 'application/json'
-                    },
-                    body: JSON.stringify({
-                        message: `📊 Stats auto-update: ${Object.keys(data.devices).length} eszköz, ${data.events.length} esemény [${SESSION_ID}]`,
-                        content: encodedContent,
-                        sha: currentSha,
-                        branch: 'main'
-                    })
-                });
-
-                if (updateResponse.ok) {
-                    console.log('✅ GitHub fájl sikeresen frissítve!');
-                    showNotification('✅ Stats automatikusan frissítve!', '#4CAF50');
-                } else {
-                    const error = await updateResponse.text();
-                    throw new Error(`Frissítés sikertelen: ${updateResponse.status} - ${error}`);
-                }
-
-            } catch (e) {
-                console.error('❌ GitHub frissítés hiba:', e);
-                showNotification(`❌ GitHub frissítés hiba: ${e.message}`, '#ff4444');
-            } finally {
-                isUpdating = false;
-            }
-        }
-
-        // Show notification
-        function showNotification(message, color) {
-            const notification = document.createElement('div');
-            notification.style.cssText = `
-                position: fixed; top: 20px; right: 20px;
-                background: ${color}; color: white; padding: 12px 20px;
-                border-radius: 5px; z-index: 1000; font-size: 14px;
-                box-shadow: 0 4px 8px rgba(0,0,0,0.3);
-            `;
-            notification.textContent = message;
-            document.body.appendChild(notification);
-
-            setTimeout(() => {
-                if (document.body.contains(notification)) {
-                    document.body.removeChild(notification);
-                }
-            }, 5000);
-        }
-
-        // Initialize
+        // Initialize - Server-side only
         document.addEventListener('DOMContentLoaded', function() {
-            // Start MQTT connection immediately
-            connectMQTT();
             setupSearch();
 
-            // Load stored data in background (async)
+            // Load data from server
             loadStoredData().then(() => {
-                updateDisplay(); // Show loaded data when ready
-                updateEventsDisplay(); // Show loaded events when ready
+                updateDisplay();
+                updateEventsDisplay();
             });
 
-            // Refresh data every 30 seconds
+            // Refresh data from server every 30 seconds
             setInterval(refreshData, 30000);
 
-            // Save data every 10 seconds
-            setInterval(saveToStorage, 10000);
-
-            // Online status is now handled by LWT messages only
+            // No client-side saving needed - server handles everything
         });
 
-        function connectMQTT() {
-            try {
-                console.log('🔄 MQTT kapcsolódás indítása...');
-                updateConnectionStatus('connecting');
-
-                const clientId = 'pierre-stats-' + Math.random().toString(36).substr(2, 9);
-
-                mqttClient = mqtt.connect(BROKER_URL, {
-                    clientId: clientId,
-                    username: USERNAME,
-                    password: PASSWORD,
-                    clean: true,
-                    connectTimeout: 10000,
-                    keepalive: 30
-                });
-
-                mqttClient.on('connect', function() {
-                    console.log('✅ MQTT kapcsolat sikeres!');
-                    updateConnectionStatus('connected');
-
-                    // Subscribe to statistics topics
-                    mqttClient.subscribe(STATS_TOPIC, { qos: 0 });
-                    mqttClient.subscribe(DEVICE_INFO_TOPIC, { qos: 0 });
-                    mqttClient.subscribe(STATUS_TOPIC, { qos: 0 });
-
-                    console.log('Subscribed to topics');
-                });
-
-                mqttClient.on('message', function(topic, message) {
-                    handleMqttMessage(topic, message.toString());
-                });
-
-                mqttClient.on('error', function(error) {
-                    console.error('MQTT Error:', error);
-                    updateConnectionStatus('error');
-                });
-
-                mqttClient.on('close', function() {
-                    console.log('MQTT connection closed');
-                    updateConnectionStatus('disconnected');
-                });
-
-            } catch (error) {
-                console.error('MQTT connection failed:', error);
-                updateConnectionStatus('error');
-            }
-        }
-
-        function handleMqttMessage(topic, message) {
-            console.log('Received:', topic, message);
-
-            if (topic.startsWith('pierre/stats/')) {
-                handleStatsMessage(topic, message);
-            } else if (topic.includes('/info')) {
-                handleDeviceInfoMessage(topic, message);
-            } else if (topic.startsWith('pierre/status/')) {
-                handleStatusMessage(topic, message);
-            }
-        }
-
-        function handleStatsMessage(topic, message) {
-            // Topic format: pierre/stats/{deviceId}/{flash|erase}
-            const parts = topic.split('/');
-            if (parts.length >= 4) {
-                const deviceId = parts[2];
-                const eventType = parts[3];
-
-                try {
-                    const data = JSON.parse(message);
-                    const deviceName = data.device_name || 'Unknown Device';
-
-                    // Check if there's an existing placeholder device with this deviceId
-                    let existingPlaceholder = null;
-                    deviceStats.forEach((device, name) => {
-                        if (name.startsWith('Device ') && device.lastDeviceId === deviceId) {
-                            existingPlaceholder = name;
-                        }
-                    });
-
-                    // If placeholder exists, replace it with real device name
-                    if (existingPlaceholder && existingPlaceholder !== deviceName) {
-                        const placeholderData = deviceStats.get(existingPlaceholder);
-                        deviceStats.delete(existingPlaceholder);
-                        deviceStats.set(deviceName, placeholderData);
-                        console.log(`Replaced placeholder "${existingPlaceholder}" with real name "${deviceName}"`);
-                    }
-
-                    // Group by device name instead of deviceId
-                    if (!deviceStats.has(deviceName)) {
-                        deviceStats.set(deviceName, {
-                            flashCount: 0,
-                            eraseCount: 0,
-                            lastSeen: new Date(),
-                            online: false, // Will be set by LWT messages
-                            lastDeviceId: deviceId,
-                            appVersion: 'unknown'
-                        });
-                    }
-
-                    const device = deviceStats.get(deviceName);
-                    // Update lastSeen for stats tracking, but don't change online status
-                    device.lastSeen = new Date(data.timestamp || Date.now());
-                    device.lastDeviceId = deviceId; // Track latest deviceId
-                    // Update app version if available
-                    if (data.app_version) {
-                        device.appVersion = data.app_version;
-                    }
-
-                    // Update counters based on event
-                    if (eventType === 'flash' && data.event === 'flash_success') {
-                        device.flashCount++;
-                        addEvent('flash', `${deviceName} completed flash operation`, deviceName);
-                    } else if (eventType === 'erase' && data.event === 'erase_success') {
-                        device.eraseCount++;
-                        addEvent('erase', `${deviceName} completed erase operation`, deviceName);
-                    } else if (eventType === 'device' && data.event === 'device_online') {
-                        addEvent('info', `${deviceName} connected`, deviceName);
-                    } else if (data.event && data.event.includes('error')) {
-                        addEvent('error', `${deviceName} error during ${eventType}`, deviceName);
-                    }
-
-                    updateDisplay();
-                    saveToStorage(); // Save after each update
-
-                } catch (e) {
-                    console.error('Failed to parse stats message:', e);
-                }
-            }
-        }
-
-        function handleDeviceInfoMessage(topic, message) {
-            // Topic format: pierre/serial/{deviceId}/{sessionId}/info
-            // Message format: "Device Name|BatteryLevel"
-            const parts = topic.split('/');
-            if (parts.length >= 4) {
-                const deviceId = parts[2];
-                const infoParts = message.split('|');
-                const deviceName = infoParts[0] || 'Unknown Device';
-
-                // Check if there's an existing placeholder device with this deviceId
-                let existingPlaceholder = null;
-                deviceStats.forEach((device, name) => {
-                    if (name.startsWith('Device ') && device.lastDeviceId === deviceId) {
-                        existingPlaceholder = name;
-                    }
-                });
-
-                // If placeholder exists, replace it with real device name
-                if (existingPlaceholder && existingPlaceholder !== deviceName) {
-                    const placeholderData = deviceStats.get(existingPlaceholder);
-                    deviceStats.delete(existingPlaceholder);
-                    deviceStats.set(deviceName, placeholderData);
-                    console.log(`Replaced placeholder "${existingPlaceholder}" with real name "${deviceName}"`);
-                }
-
-                // Group by device name instead of deviceId
-                if (!deviceStats.has(deviceName)) {
-                    deviceStats.set(deviceName, {
-                        flashCount: 0,
-                        eraseCount: 0,
-                        lastSeen: new Date(),
-                        online: false, // Will be set by LWT messages
-                        lastDeviceId: deviceId,
-                        appVersion: 'unknown'
-                    });
-                } else {
-                    const device = deviceStats.get(deviceName);
-                    // Don't update lastSeen or online status from device info messages
-                    // Only update device ID to track latest connection
-                    device.lastDeviceId = deviceId; // Track latest deviceId
-                    // Device info messages don't contain app version
-                }
-
-                updateDisplay();
-                saveToStorage(); // Save after each update
-            }
-        }
-
-        function handleStatusMessage(topic, message) {
-            // Topic format: pierre/status/{deviceId}/online or pierre/status/{deviceId}/offline
-            console.log('LWT Status message:', topic, message);
-
-            const parts = topic.split('/');
-            if (parts.length >= 4) {
-                const deviceId = parts[2];
-                const status = parts[3]; // 'online' or 'offline'
-
-                // Find device by deviceId
-                let targetDeviceName = null;
-                deviceStats.forEach((device, deviceName) => {
-                    if (device.lastDeviceId === deviceId) {
-                        targetDeviceName = deviceName;
-                    }
-                });
-
-                if (targetDeviceName) {
-                    const device = deviceStats.get(targetDeviceName);
-
-                    if (status === 'online') {
-                        device.online = true;
-                        console.log(`${targetDeviceName} is now ONLINE (LWT)`);
-                        addEvent('info', 'Device connected', targetDeviceName);
-
-                    } else if (status === 'offline') {
-                        device.online = false;
-                        console.log(`${targetDeviceName} is now OFFLINE (LWT)`);
-                        addEvent('info', 'Device disconnected', targetDeviceName);
-                    }
-
-                    updateDisplay();
-                    saveToStorage();
-                } else {
-                    // Create placeholder for new device
-                    console.log(`Creating placeholder for device ID: ${deviceId}, status: ${status}`);
-
-                    const placeholderName = `Device ${deviceId}`;
-                    if (!deviceStats.has(placeholderName)) {
-                        deviceStats.set(placeholderName, {
-                            flashCount: 0,
-                            eraseCount: 0,
-                            lastSeen: new Date(),
-                            online: status === 'online',
-                            lastDeviceId: deviceId,
-                            appVersion: 'unknown'
-                        });
-                    } else {
-                        const device = deviceStats.get(placeholderName);
-                        device.online = status === 'online';
-                        device.lastDeviceId = deviceId;
-                    }
-
-                    const eventMessage = status === 'online' ? 'Device connected' : 'Device disconnected';
-                    addEvent('info', eventMessage, placeholderName);
-
-                    updateDisplay();
-                    saveToStorage();
-                }
-            }
-        }
+        // All MQTT handling moved to server-side
 
 
         function addEvent(type, message, deviceName) {
@@ -955,42 +542,23 @@
             eventsList.innerHTML = html;
         }
 
-        function updateConnectionStatus(status) {
+        // Status updated from server data
+        function updateConnectionStatus() {
             const statusEl = document.getElementById('connectionStatus');
-
-            switch(status) {
-                case 'connected':
-                    statusEl.textContent = '🟢 Connected';
-                    statusEl.className = 'connection-status connected';
-                    break;
-                case 'connecting':
-                    statusEl.textContent = '🟡 Connecting...';
-                    statusEl.className = 'connection-status disconnected';
-                    break;
-                case 'disconnected':
-                    statusEl.textContent = '🔴 Disconnected';
-                    statusEl.className = 'connection-status disconnected';
-                    break;
-                case 'error':
-                    statusEl.textContent = '❌ Error';
-                    statusEl.className = 'connection-status disconnected';
-                    break;
-            }
+            statusEl.textContent = '📊 Server Data';
+            statusEl.className = 'connection-status connected';
         }
 
-        // Show current data for GitHub update
+        // Show current data from server
         function showUpdateData() {
-            if (!lastUpdateData) {
-                // Prepare data if not available
-                const devicesObject = Object.fromEntries(deviceStats.entries());
-                const eventsToStore = events.slice(0, maxEvents);
-                lastUpdateData = {
-                    devices: devicesObject,
-                    events: eventsToStore,
-                    lastUpdate: new Date().toISOString(),
-                    version: "1.0"
-                };
-            }
+            const devicesObject = Object.fromEntries(deviceStats.entries());
+            const eventsToStore = events.slice(0, maxEvents);
+            const currentData = {
+                devices: devicesObject,
+                events: eventsToStore,
+                lastUpdate: new Date().toISOString(),
+                version: "1.0"
+            };
 
             // Create modal dialog
             const modal = document.createElement('div');
@@ -1008,9 +576,9 @@
             `;
 
             content.innerHTML = `
-                <h3>📊 Current Stats Data for GitHub</h3>
-                <p>Copy this content to stats-data.json manually:</p>
-                <textarea style="width: 600px; height: 400px; background: #2a2a2a; color: #00ff00; border: 1px solid #444; padding: 10px; font-family: monospace;" readonly>${JSON.stringify(lastUpdateData, null, 2)}</textarea>
+                <h3>📊 Current Stats Data (Read-Only)</h3>
+                <p>Server-side data managed automatically:</p>
+                <textarea style="width: 600px; height: 400px; background: #2a2a2a; color: #00ff00; border: 1px solid #444; padding: 10px; font-family: monospace;" readonly>${JSON.stringify(currentData, null, 2)}</textarea>
                 <br><br>
                 <button onclick="document.body.removeChild(this.parentElement.parentElement)" style="background: #ff4444; color: white; border: none; padding: 10px 20px; border-radius: 5px; cursor: pointer;">Close</button>
             `;
@@ -1047,13 +615,12 @@
         }
 
         function refreshData() {
-            console.log('Refreshing data...');
-            updateDisplay();
-
-            // Reconnect MQTT if disconnected
-            if (!mqttClient || !mqttClient.connected) {
-                connectMQTT();
-            }
+            console.log('Refreshing data from server...');
+            loadStoredData().then(() => {
+                updateDisplay();
+                updateEventsDisplay();
+                updateConnectionStatus();
+            });
         }
 
         // Reset statistics with password protection
