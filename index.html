@@ -538,10 +538,10 @@
 
             // Update device data if we have a deviceId
             if (deviceId) {
-                // During initial load period, mark devices as potentially old
-                // unless they've been seen very recently
-                const effectiveLastSeen = isInitialLoad && (now - pageLoadTime > 5000)
-                    ? pageLoadTime - 40000  // Mark as 40s old if during initial load
+                // During initial load period, mark ALL devices as old
+                // Only after initial period they get fresh timestamps
+                const effectiveLastSeen = isInitialLoad
+                    ? pageLoadTime - 40000  // Mark as 40s old during entire initial load period
                     : now;
 
                 connectedDevices.set(deviceId, {
@@ -549,6 +549,10 @@
                     lastSeen: effectiveLastSeen,
                     topic: topic
                 });
+
+                if (isInitialLoad) {
+                    console.log(`🕐 Initial load: ${deviceName || deviceId} marked as old (will be cleaned up soon)`);
+                }
 
                 updateDeviceList();
                 updateChart();
@@ -582,7 +586,7 @@
             // Clean up any devices that were marked as old during initial load
             cleanupOfflineDevices();
 
-            console.log('🔄 Initial load period ended, cleaned up old devices');
+            console.log('🔄 Initial load period ended (10s), cleaned up old devices');
         }
 
         function connectMQTT() {
@@ -660,8 +664,8 @@
             // Update chart every minute
             setInterval(updateChart, 60000);
 
-            // End initial load period after 15 seconds and clean up old devices
-            setTimeout(initialCleanup, 15000);
+            // End initial load period after 10 seconds and clean up old devices
+            setTimeout(initialCleanup, 10000);
         });
     </script>
 </body>
