@@ -258,6 +258,10 @@
         const connectedDevices = new Map();
         let client = null;
 
+        // Track page load time to identify fresh vs old devices
+        const pageLoadTime = Date.now();
+        let isInitialLoad = true;
+
         // Chart data - store device count over time (last 24 hours)
         const chartData = [];
         let deviceChart = null;
@@ -534,9 +538,15 @@
 
             // Update device data if we have a deviceId
             if (deviceId) {
+                // During initial load period, mark devices as potentially old
+                // unless they've been seen very recently
+                const effectiveLastSeen = isInitialLoad && (now - pageLoadTime > 5000)
+                    ? pageLoadTime - 40000  // Mark as 40s old if during initial load
+                    : now;
+
                 connectedDevices.set(deviceId, {
                     name: deviceName || deviceId,
-                    lastSeen: now,
+                    lastSeen: effectiveLastSeen,
                     topic: topic
                 });
 
@@ -566,19 +576,13 @@
         }
 
         function initialCleanup() {
-            // On page load, mark all devices as very old so they get cleaned up quickly
-            // unless they send new messages proving they're still online
-            const now = Date.now();
-            const oldTimestamp = now - 35000; // 35 seconds ago (older than cleanup threshold)
+            // Mark initial load period as over
+            isInitialLoad = false;
 
-            connectedDevices.forEach((deviceData, deviceId) => {
-                connectedDevices.set(deviceId, {
-                    ...deviceData,
-                    lastSeen: oldTimestamp
-                });
-            });
+            // Clean up any devices that were marked as old during initial load
+            cleanupOfflineDevices();
 
-            console.log('🔄 Initial cleanup: marked all devices as old, waiting for fresh messages...');
+            console.log('🔄 Initial load period ended, cleaned up old devices');
         }
 
         function connectMQTT() {
@@ -635,9 +639,6 @@
 
         // Wait for DOM to be fully loaded
         document.addEventListener('DOMContentLoaded', function() {
-            // Mark any existing devices as old for quick cleanup
-            initialCleanup();
-
             // Initialize chart
             initChart();
 
@@ -659,8 +660,8 @@
             // Update chart every minute
             setInterval(updateChart, 60000);
 
-            // Run initial cleanup after 10 seconds to remove old devices quickly
-            setTimeout(cleanupOfflineDevices, 10000);
+            // End initial load period after 15 seconds and clean up old devices
+            setTimeout(initialCleanup, 15000);
         });
     </script>
 </body>
