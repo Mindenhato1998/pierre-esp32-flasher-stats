@@ -325,7 +325,7 @@
                 deviceItem.className = 'device-item';
 
                 const timeSinceLastSeen = Date.now() - deviceData.lastSeen;
-                const isOnline = timeSinceLastSeen < 30000; // 30 seconds threshold
+                const isOnline = timeSinceLastSeen < 25000; // 25 seconds threshold (faster offline detection)
 
                 // Show primary ID, or if multiple IDs, show count
                 const idDisplay = deviceData.allIds.length > 1
@@ -547,16 +547,38 @@
 
         function cleanupOfflineDevices() {
             const now = Date.now();
-            const timeout = 60000; // 1 minute timeout
+            const timeout = 30000; // 30 seconds timeout (faster cleanup)
 
+            let removedCount = 0;
             for (const [deviceId, deviceData] of connectedDevices.entries()) {
                 if (now - deviceData.lastSeen > timeout) {
                     connectedDevices.delete(deviceId);
+                    removedCount++;
                 }
+            }
+
+            if (removedCount > 0) {
+                console.log(`🧹 Cleaned up ${removedCount} offline devices`);
             }
 
             updateDeviceList();
             updateChart();
+        }
+
+        function initialCleanup() {
+            // On page load, mark all devices as very old so they get cleaned up quickly
+            // unless they send new messages proving they're still online
+            const now = Date.now();
+            const oldTimestamp = now - 35000; // 35 seconds ago (older than cleanup threshold)
+
+            connectedDevices.forEach((deviceData, deviceId) => {
+                connectedDevices.set(deviceId, {
+                    ...deviceData,
+                    lastSeen: oldTimestamp
+                });
+            });
+
+            console.log('🔄 Initial cleanup: marked all devices as old, waiting for fresh messages...');
         }
 
         function connectMQTT() {
@@ -613,6 +635,9 @@
 
         // Wait for DOM to be fully loaded
         document.addEventListener('DOMContentLoaded', function() {
+            // Mark any existing devices as old for quick cleanup
+            initialCleanup();
+
             // Initialize chart
             initChart();
 
@@ -625,14 +650,17 @@
             // Start monitoring
             connectMQTT();
 
-            // Clean up offline devices every 30 seconds
-            setInterval(cleanupOfflineDevices, 30000);
+            // Clean up offline devices every 15 seconds (more frequent)
+            setInterval(cleanupOfflineDevices, 15000);
 
             // Update device list every 5 seconds to refresh "last seen" times
             setInterval(updateDeviceList, 5000);
 
             // Update chart every minute
             setInterval(updateChart, 60000);
+
+            // Run initial cleanup after 10 seconds to remove old devices quickly
+            setTimeout(cleanupOfflineDevices, 10000);
         });
     </script>
 </body>
