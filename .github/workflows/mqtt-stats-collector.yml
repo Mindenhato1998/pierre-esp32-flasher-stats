@@ -1,0 +1,50 @@
+name: ESP32 Stats Collector (Continuous)
+
+on:
+  # Run every 5 minutes for continuous monitoring
+  schedule:
+    - cron: '*/5 * * * *'
+
+  # Allow manual trigger
+  workflow_dispatch:
+
+jobs:
+  collect-mqtt-stats:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+      with:
+        token: ${{ secrets.GITHUB_TOKEN }}
+
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.11'
+
+    - name: Install dependencies
+      run: |
+        pip install paho-mqtt requests python-dateutil
+
+    - name: Run MQTT Stats Collector
+      env:
+        HIVEMQ_USERNAME: ${{ secrets.HIVEMQ_USERNAME }}
+        HIVEMQ_PASSWORD: ${{ secrets.HIVEMQ_PASSWORD }}
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        GITHUB_REPO: ${{ github.repository }}
+      run: |
+        python .github/scripts/mqtt_collector.py
+
+    - name: Commit and push if changes
+      run: |
+        git config --local user.email "action@github.com"
+        git config --local user.name "GitHub Action"
+        git add stats-data.json
+        if ! git diff --staged --quiet; then
+          git commit -m "📊 Server-side stats update $(date -u +%Y-%m-%d_%H:%M:%S_UTC)"
+          git push
+          echo "✅ Changes committed and pushed"
+        else
+          echo "ℹ️ No changes to commit"
+        fi

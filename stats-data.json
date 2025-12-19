@@ -1,0 +1,340 @@
+{
+  "devices": {
+    "Xiaomi Redmi Note 8 Pro": {
+      "flashCount": 0,
+      "eraseCount": 0,
+      "lastSeen": "2025-10-29T09:45:47.555Z",
+      "online": false,
+      "lastDeviceId": "c58c370d-c17",
+      "appVersion": "unknown"
+    },
+    "samsung SM-T510": {
+      "flashCount": 0,
+      "eraseCount": 0,
+      "lastSeen": "2025-10-29T09:45:47.558Z",
+      "online": false,
+      "lastDeviceId": "55b99345-508",
+      "appVersion": "unknown"
+    },
+    "samsung SM-A536B": {
+      "flashCount": 0,
+      "eraseCount": 0,
+      "lastSeen": "2025-10-29T09:45:47.560Z",
+      "online": false,
+      "lastDeviceId": "b32fd3b6-33a",
+      "appVersion": "unknown"
+    },
+    "realme RMX3890": {
+      "flashCount": 0,
+      "eraseCount": 0,
+      "lastSeen": "2025-10-29T09:45:47.605Z",
+      "online": false,
+      "lastDeviceId": "f9e7bbbc-286",
+      "appVersion": "unknown"
+    },
+    "samsung SM-S928B": {
+      "flashCount": 0,
+      "eraseCount": 0,
+      "lastSeen": "2025-10-29T09:45:47.607Z",
+      "online": false,
+      "lastDeviceId": "90233921-976",
+      "appVersion": "unknown"
+    },
+    "samsung SM-A528B": {
+      "flashCount": 0,
+      "eraseCount": 0,
+      "lastSeen": "2025-10-29T09:45:47.620Z",
+      "online": false,
+      "lastDeviceId": "68942905-6d6",
+      "appVersion": "unknown"
+    },
+    "Test Device Galaxy S21": {
+      "flashCount": 46,
+      "eraseCount": 0,
+      "lastSeen": "2025-10-29T11:03:21.544Z",
+      "online": false,
+      "lastDeviceId": "test-device-123",
+      "appVersion": "2.0.31"
+    }
+  },
+  "events": [
+    {
+      "type": "flash",
+      "message": "Test Device Galaxy S21 completed flash operation",
+      "deviceName": "Test Device Galaxy S21",
+      "timestamp": "2025-10-29T11:03:21.626Z"
+    },
+    {
+      "type": "flash",
+      "message": "Test Device Galaxy S21 completed flash operation",
+      "deviceName": "Test Device Galaxy S21",
+      "timestamp": "2025-10-29T10:52:00.669Z"
+    },
+    {
+      "type": "flash",
+      "message": "Test Device Galaxy S21 completed flash operation",
+      "deviceName": "Test Device Galaxy S21",
+      "timestamp": "2025-10-29T10:52:00.487Z"
+    },
+    {
+      "type": "flash",
+      "message": "Test Device Galaxy S21 completed flash operation",
+      "deviceName": "Test Device Galaxy S21",
+      "timestamp": "2025-10-29T10:52:00.343Z"
+    },
+    {
+      "type": "flash",
+      "message": "Test Device Galaxy S21 completed flash operation",
+      "deviceName": "Test Device Galaxy S21",
+      "timestamp": "2025-10-29T10:52:00.257Z"
+    },
+    {
+      "type": "flash",
+      "message": "Test Device Galaxy S21 completed flash operation",
+      "deviceName": "Test Device Galaxy S21",
+      "timestamp": "2025-10-29T10:52:00.021Z"
+    },
+    {
+      "type": "flash",
+      "message": "Test Device Galaxy S21 completed flash operation",
+      "deviceName": "Test Device Galaxy S21",
+      "timestamp": "2025-10-29T10:51:59.850Z"
+    },
+    {
+      "type": "flash",
+      "message": "Test Device Galaxy S21 completed flash operation",
+      "deviceName": "Test Device Galaxy S21",
+      "timestamp": "2025-10-29T10:51:59.690Z"
+    },
+    {
+      "type": "flash",
+      "message": "Test Device Galaxy S21 completed flash operation",
+      "deviceName": "Test Device Galaxy S21",
+      "timestamp": "2025-10-29T10:51:59.526Z"
+    },
+    {
+      "type": "flash",
+      "message": "Test Device Galaxy S21 completed flash operation",
+      "deviceName": "Test Device Galaxy S21",
+      "timestamp": "2025-10-29T10:51:59.365Z"
+    },
+    {
+      "type": "flash",
+      "message": "Test Device Galaxy S21 completed flash operation",
+      "deviceName": "Test Device Galaxy S21",
+      "timestamp": "2025-10-29T10:51:59.219Z"
+    },
+    {
+      "type": "flash",
+      "message": "Test Device Galaxy S21 completed flash operation",
+      "deviceName": "Test Device Galaxy S21",
+      "timestamp": "2025-10-29T10:51:59.061Z"
+    },
+    {
+      "type": "flash",
+      "message": "Test Device Galaxy S21 completed flash operation",
+      "deviceName": "Test Device Galaxy S21",
+      "timestamp": "2025-10-29T10:51:58.907Z"
+    },
+    {
+      "type": "flash",
+      "message": "Test Device Galaxy S21 completed flash operation",
+      "deviceName": "Test Device Galaxy S21",
+      "timestamp": "2025-10-29T10:43:28.917Z"
+    },
+    {
+      "type": "flash",
+      "message": "Test Device Galaxy S21 completed flash operation",
+      "deviceName": "Test Device Galaxy S21",
+      "timestamp": "2025-10-29T10:43:28.740Z"
+    },
+    {
+      "type": "flash",
+      "message": "Test Device Galaxy S21 completed flash operation",
+      "deviceName": "Test Device Galaxy S21",
+      "timestamp": "2025-10-29T10:43:28.665Z"
+    },
+    {
+      "type": "flash",
+      "message": "Test Device Galaxy S21 completed flash operation",
+      "deviceName": "Test Device Galaxy S21",
+      "timestamp": "2025-10-29T10:43:28.648Z"
+    },
+    {
+      "type": "flash",
+      "message": "Test Device Galaxy S21 completed flash operation",
+      "deviceName": "Test Device Galaxy S21",
+      "timestamp": "2025-10-29T10:43:28.264Z"
+    },
+    {
+      "type": "flash",
+      "message": "Test Device Galaxy S21 completed flash operation",
+      "deviceName": "Test Device Galaxy S21",
+      "timestamp": "2025-10-29T10:43:28.109Z"
+    },
+    {
+      "type": "flash",
+      "message": "Test Device Galaxy S21 completed flash operation",
+      "deviceName": "Test Device Galaxy S21",
+      "timestamp": "2025-10-29T10:28:54.590Z"
+    },
+    {
+      "type": "flash",
+      "message": "Test Device Galaxy S21 completed flash operation",
+      "deviceName": "Test Device Galaxy S21",
+      "timestamp": "2025-10-29T10:28:54.425Z"
+    },
+    {
+      "type": "flash",
+      "message": "Test Device Galaxy S21 completed flash operation",
+      "deviceName": "Test Device Galaxy S21",
+      "timestamp": "2025-10-29T10:28:54.298Z"
+    },
+    {
+      "type": "flash",
+      "message": "Test Device Galaxy S21 completed flash operation",
+      "deviceName": "Test Device Galaxy S21",
+      "timestamp": "2025-10-29T10:28:54.138Z"
+    },
+    {
+      "type": "flash",
+      "message": "Test Device Galaxy S21 completed flash operation",
+      "deviceName": "Test Device Galaxy S21",
+      "timestamp": "2025-10-29T10:28:53.984Z"
+    },
+    {
+      "type": "flash",
+      "message": "Test Device Galaxy S21 completed flash operation",
+      "deviceName": "Test Device Galaxy S21",
+      "timestamp": "2025-10-29T10:28:53.816Z"
+    },
+    {
+      "type": "flash",
+      "message": "Test Device Galaxy S21 completed flash operation",
+      "deviceName": "Test Device Galaxy S21",
+      "timestamp": "2025-10-29T10:28:53.671Z"
+    },
+    {
+      "type": "flash",
+      "message": "Test Device Galaxy S21 completed flash operation",
+      "deviceName": "Test Device Galaxy S21",
+      "timestamp": "2025-10-29T10:28:53.520Z"
+    },
+    {
+      "type": "flash",
+      "message": "Test Device Galaxy S21 completed flash operation",
+      "deviceName": "Test Device Galaxy S21",
+      "timestamp": "2025-10-29T10:28:53.374Z"
+    },
+    {
+      "type": "flash",
+      "message": "Test Device Galaxy S21 completed flash operation",
+      "deviceName": "Test Device Galaxy S21",
+      "timestamp": "2025-10-29T10:28:53.205Z"
+    },
+    {
+      "type": "flash",
+      "message": "Test Device Galaxy S21 completed flash operation",
+      "deviceName": "Test Device Galaxy S21",
+      "timestamp": "2025-10-29T10:28:53.081Z"
+    },
+    {
+      "type": "flash",
+      "message": "Test Device Galaxy S21 completed flash operation",
+      "deviceName": "Test Device Galaxy S21",
+      "timestamp": "2025-10-29T09:49:35.566Z"
+    },
+    {
+      "type": "flash",
+      "message": "Test Device Galaxy S21 completed flash operation",
+      "deviceName": "Test Device Galaxy S21",
+      "timestamp": "2025-10-29T09:49:35.397Z"
+    },
+    {
+      "type": "flash",
+      "message": "Test Device Galaxy S21 completed flash operation",
+      "deviceName": "Test Device Galaxy S21",
+      "timestamp": "2025-10-29T09:49:35.258Z"
+    },
+    {
+      "type": "flash",
+      "message": "Test Device Galaxy S21 completed flash operation",
+      "deviceName": "Test Device Galaxy S21",
+      "timestamp": "2025-10-29T09:49:35.121Z"
+    },
+    {
+      "type": "flash",
+      "message": "Test Device Galaxy S21 completed flash operation",
+      "deviceName": "Test Device Galaxy S21",
+      "timestamp": "2025-10-29T09:49:34.977Z"
+    },
+    {
+      "type": "flash",
+      "message": "Test Device Galaxy S21 completed flash operation",
+      "deviceName": "Test Device Galaxy S21",
+      "timestamp": "2025-10-29T09:49:34.829Z"
+    },
+    {
+      "type": "flash",
+      "message": "Test Device Galaxy S21 completed flash operation",
+      "deviceName": "Test Device Galaxy S21",
+      "timestamp": "2025-10-29T09:49:34.696Z"
+    },
+    {
+      "type": "flash",
+      "message": "Test Device Galaxy S21 completed flash operation",
+      "deviceName": "Test Device Galaxy S21",
+      "timestamp": "2025-10-29T09:49:34.539Z"
+    },
+    {
+      "type": "flash",
+      "message": "Test Device Galaxy S21 completed flash operation",
+      "deviceName": "Test Device Galaxy S21",
+      "timestamp": "2025-10-29T09:49:34.397Z"
+    },
+    {
+      "type": "flash",
+      "message": "Test Device Galaxy S21 completed flash operation",
+      "deviceName": "Test Device Galaxy S21",
+      "timestamp": "2025-10-29T09:49:34.231Z"
+    },
+    {
+      "type": "flash",
+      "message": "Test Device Galaxy S21 completed flash operation",
+      "deviceName": "Test Device Galaxy S21",
+      "timestamp": "2025-10-29T09:49:34.069Z"
+    },
+    {
+      "type": "flash",
+      "message": "Test Device Galaxy S21 completed flash operation",
+      "deviceName": "Test Device Galaxy S21",
+      "timestamp": "2025-10-29T09:49:33.936Z"
+    },
+    {
+      "type": "flash",
+      "message": "Test Device Galaxy S21 completed flash operation",
+      "deviceName": "Test Device Galaxy S21",
+      "timestamp": "2025-10-29T09:49:33.765Z"
+    },
+    {
+      "type": "flash",
+      "message": "Test Device Galaxy S21 completed flash operation",
+      "deviceName": "Test Device Galaxy S21",
+      "timestamp": "2025-10-29T09:49:33.613Z"
+    },
+    {
+      "type": "flash",
+      "message": "Test Device Galaxy S21 completed flash operation",
+      "deviceName": "Test Device Galaxy S21",
+      "timestamp": "2025-10-29T09:49:33.461Z"
+    },
+    {
+      "type": "flash",
+      "message": "Test Device Galaxy S21 completed flash operation",
+      "deviceName": "Test Device Galaxy S21",
+      "timestamp": "2025-10-29T09:46:16.188Z"
+    }
+  ],
+  "lastUpdate": "2025-10-29T15:03:01.905Z",
+  "version": "1.0"
+}

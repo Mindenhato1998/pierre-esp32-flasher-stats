@@ -1,0 +1,47 @@
+{
+  "project_info": {
+    "project_number": "474853729847",
+    "project_id": "pierre-flasher-serial",
+    "storage_bucket": "pierre-flasher-serial.appspot.com"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:474853729847:android:8a9b7c6d5e4f3g2h",
+        "android_client_info": {
+          "package_name": "com.smartpierre.espflasher"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "474853729847-1a2b3c4d5e6f7g8h9i0j.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.smartpierre.espflasher",
+            "certificate_hash": "sha1_cert_fingerprint_placeholder"
+          }
+        },
+        {
+          "client_id": "474853729847-web.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBdVl-cGUGeDUqBG-cYa6oB4gOJm1kUzFw"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "474853729847-web.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Test ESP32 Stats Simulation</title>
+    <script src="https://unpkg.com/mqtt/dist/mqtt.min.js"></script>
+</head>
+<body>
+    <h1>ESP32 Statistics Test Simulator</h1>
+    <button onclick="sendFlashStats()">Simulate Flash Operation</button>
+    <button onclick="sendEraseStats()">Simulate Erase Operation</button>
+    <button onclick="sendDeviceOnline()">Simulate Device Online</button>
+    <button onclick="sendDeviceOffline()">Simulate Device Offline</button>
+    <div id="messages"></div>
+
+    <script>
+        const BROKER_URL = 'wss://0c1bf62a21e94682adf340b8a2d3fe04.s1.eu.hivemq.cloud:8884/mqtt';
+        const USERNAME = 'pierreflasher';
+        const PASSWORD = 'Pierre2k23';
+
+        let client;
+        const testDeviceId = 'test-device-123';
+
+        console.log('Connecting to MQTT...');
+
+        client = mqtt.connect(BROKER_URL, {
+            username: USERNAME,
+            password: PASSWORD,
+            clean: true
+        });
+
+        client.on('connect', function() {
+            console.log('✅ Connected to MQTT for testing');
+            log('Connected to MQTT broker');
+        });
+
+        client.on('error', function(error) {
+            console.error('❌ MQTT Error:', error);
+            log('MQTT Error: ' + error.message);
+        });
+
+        function sendFlashStats() {
+            const statsData = {
+                event: 'flash_success',
+                device_name: 'Test Device Galaxy S21',
+                firmware_type: 'production',
+                timestamp: Date.now(),
+                session_id: 'test-session-' + Math.random().toString(36).substr(2, 9),
+                app_version: '2.0.31'
+            };
+
+            const topic = `pierre/stats/${testDeviceId}/flash`;
+            client.publish(topic, JSON.stringify(statsData));
+            log(`📤 Sent flash stats: ${topic}`);
+        }
+
+        function sendEraseStats() {
+            const statsData = {
+                event: 'erase_success',
+                device_name: 'Test Device Galaxy S21',
+                firmware_type: 'n/a',
+                timestamp: Date.now(),
+                session_id: 'test-session-' + Math.random().toString(36).substr(2, 9),
+                app_version: '2.0.31'
+            };
+
+            const topic = `pierre/stats/${testDeviceId}/erase`;
+            client.publish(topic, JSON.stringify(statsData));
+            log(`📤 Sent erase stats: ${topic}`);
+        }
+
+        function sendDeviceOnline() {
+            const topic = `pierre/status/${testDeviceId}/online`;
+            client.publish(topic, 'online');
+            log(`📤 Sent device online: ${topic}`);
+        }
+
+        function sendDeviceOffline() {
+            const topic = `pierre/status/${testDeviceId}/offline`;
+            client.publish(topic, 'offline');
+            log(`📤 Sent device offline: ${topic}`);
+        }
+
+        function log(message) {
+            const div = document.getElementById('messages');
+            const timestamp = new Date().toISOString();
+            div.innerHTML += `${timestamp} - ${message}<br>`;
+            div.scrollTop = div.scrollHeight;
+        }
+    </script>
+</body>
+</html>
