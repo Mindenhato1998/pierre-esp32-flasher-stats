@@ -390,7 +390,7 @@
                                 ${isOnline ? 'Online' : `Last seen: ${Math.floor(timeSinceLastSeen / 1000)}s ago`}
                             </span>
                         </div>
-                        ${isOnline ? `<button class="connect-btn" onclick="window.open('${connectUrl}', '_blank')">Connect</button>` : ''}
+                        ${isOnline ? `<button class="connect-btn" onclick="connectToDevice('${deviceData.primaryId}', '${sessionId}')">Connect</button>` : ''}
                     </div>
                 `;
 
@@ -639,6 +639,37 @@
             // Generate a random hex string
             const randomHex = () => Math.random().toString(16).substr(2, 8);
             return randomHex() + '-' + randomHex();
+        }
+
+        // Connect to device with session registration
+        function connectToDevice(deviceId, sessionId) {
+            if (!client || !client.connected) {
+                alert('MQTT not connected. Please wait and try again.');
+                return;
+            }
+
+            // Register the session with MQTT (notify the device about new session)
+            const sessionTopic = `pierre-esp32/${deviceId}/session/register`;
+            const sessionData = {
+                sessionId: sessionId,
+                timestamp: Date.now(),
+                type: 'web_connect'
+            };
+
+            // Publish session registration
+            client.publish(sessionTopic, JSON.stringify(sessionData), { qos: 1 }, (err) => {
+                if (err) {
+                    console.error('Failed to register session:', err);
+                    alert('Failed to register session. Please try again.');
+                } else {
+                    console.log(`✅ Session registered: ${sessionId} for device: ${deviceId}`);
+                    // Wait a moment for registration to process, then open the serial page
+                    setTimeout(() => {
+                        const connectUrl = `https://mindenhato1998.github.io/pierre-serial/?device=${deviceId}&session=${sessionId}`;
+                        window.open(connectUrl, '_blank');
+                    }, 500);
+                }
+            });
         }
 
         function connectMQTT() {
