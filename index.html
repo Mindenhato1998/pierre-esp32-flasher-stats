@@ -208,6 +208,44 @@
             border-radius: 8px;
             padding: 1rem;
         }
+
+        .connect-btn {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: #fff;
+            border: none;
+            border-radius: 6px;
+            padding: 8px 16px;
+            font-size: 0.9rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            text-decoration: none;
+            display: inline-block;
+        }
+
+        .connect-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+        }
+
+        .connect-btn:active {
+            transform: translateY(0);
+        }
+
+        .device-info {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 1rem;
+        }
+
+        .device-info-text {
+            display: flex;
+            gap: 1rem;
+            align-items: center;
+            flex: 1;
+        }
     </style>
 </head>
 <body>
@@ -246,8 +284,8 @@
         </div>
     </div>
 
-    <script src="https://unpkg.com/mqtt/dist/mqtt.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="../../unpkg.com/mqtt/dist/mqtt.min.js"></script>
+    <script src="../../cdn.jsdelivr.net/npm/chart.js"></script>
     <script>
         // MQTT connection settings
         const MQTT_HOST = 'wss://0c1bf62a21e94682adf340b8a2d3fe04.s1.eu.hivemq.cloud:8884/mqtt';
@@ -336,16 +374,23 @@
                     ? `${deviceData.allIds.length} sessions`
                     : `ID: ${deviceData.primaryId}`;
 
+                // Generate a unique session ID for the connection
+                const sessionId = generateSessionId();
+                const connectUrl = `https://mindenhato1998.github.io/pierre-serial/?device=${deviceData.primaryId}&session=${sessionId}`;
+
                 deviceItem.innerHTML = `
                     <div class="device-name">
                         <span class="status-indicator ${isOnline ? 'status-online' : 'status-offline'}"></span>
                         ${deviceData.name || deviceData.primaryId}
                     </div>
                     <div class="device-info">
-                        <span>${idDisplay}</span>
-                        <span class="last-seen">
-                            ${isOnline ? 'Online' : `Last seen: ${Math.floor(timeSinceLastSeen / 1000)}s ago`}
-                        </span>
+                        <div class="device-info-text">
+                            <span>${idDisplay}</span>
+                            <span class="last-seen">
+                                ${isOnline ? 'Online' : `Last seen: ${Math.floor(timeSinceLastSeen / 1000)}s ago`}
+                            </span>
+                        </div>
+                        ${isOnline ? `<button class="connect-btn" onclick="window.open('${connectUrl}', '_blank')">Connect</button>` : ''}
                     </div>
                 `;
 
@@ -587,6 +632,13 @@
             cleanupOfflineDevices();
 
             console.log('🔄 Initial load period ended (10s), cleaned up old devices');
+        }
+
+        // Generate unique session ID
+        function generateSessionId() {
+            // Generate a random hex string
+            const randomHex = () => Math.random().toString(16).substr(2, 8);
+            return randomHex() + '-' + randomHex();
         }
 
         function connectMQTT() {
