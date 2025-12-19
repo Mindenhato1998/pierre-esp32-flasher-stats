@@ -521,6 +521,49 @@
             const parts = topic.split('/');
             if (parts.length < 3 || parts[0] !== 'pierre') return;
 
+            // Handle pierre/serial/DEVICE_ID/SESSION_ID/status or /info messages
+            if (parts[1] === 'serial' && parts.length >= 5) {
+                const deviceId = parts[2];
+                const sessionId = parts[3];
+                const messageType = parts[4]; // 'status' or 'info'
+
+                console.log(`🔗 Serial message from device ${deviceId} with session ${sessionId}`);
+
+                // Ensure device exists in map
+                if (!connectedDevices.has(deviceId)) {
+                    connectedDevices.set(deviceId, {
+                        name: deviceId,
+                        lastSeen: Date.now(),
+                        primaryId: deviceId,
+                        allIds: [deviceId]
+                    });
+                }
+
+                // Store session ID
+                const deviceData = connectedDevices.get(deviceId);
+                deviceData.sessionId = sessionId;
+                deviceData.lastSeen = Date.now();
+                console.log(`✅ Stored session ${sessionId} for device ${deviceId}`);
+
+                // Parse device info if available
+                if (messageType === 'info' && message) {
+                    // Format: "samsung SM-A536B|94" (device name|battery)
+                    const infoParts = message.split('|');
+                    if (infoParts[0]) {
+                        deviceData.name = infoParts[0];
+                        console.log(`📱 Device name: ${infoParts[0]}`);
+                    }
+                    if (infoParts[1]) {
+                        deviceData.battery = infoParts[1];
+                        console.log(`🔋 Battery: ${infoParts[1]}%`);
+                    }
+                }
+
+                updateDeviceList();
+                updateChart();
+                return;
+            }
+
             let deviceId = null;
             let deviceName = null;
             const now = Date.now();
