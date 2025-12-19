@@ -374,8 +374,8 @@
                     ? `${deviceData.allIds.length} sessions`
                     : `ID: ${deviceData.primaryId}`;
 
-                // Generate a unique session ID for the connection
-                const sessionId = generateSessionId();
+                // Use device's existing session ID or generate a new one
+                const sessionId = deviceData.sessionId || generateSessionId();
                 const connectUrl = `https://mindenhato1998.github.io/pierre-serial/?device=${deviceData.primaryId}&session=${sessionId}`;
 
                 deviceItem.innerHTML = `
@@ -531,6 +531,12 @@
                         // Parse JSON message from StatisticsManager
                         const data = JSON.parse(message);
                         deviceName = data.device_name || deviceId;
+                        // Store session ID if provided
+                        if (data.session_id) {
+                            if (connectedDevices.has(deviceId)) {
+                                connectedDevices.get(deviceId).sessionId = data.session_id;
+                            }
+                        }
                     } catch (e) {
                         deviceName = message || deviceId;
                     }
@@ -641,35 +647,14 @@
             return randomHex() + '-' + randomHex();
         }
 
-        // Connect to device with session registration
+        // Connect to device using existing session
         function connectToDevice(deviceId, sessionId) {
-            if (!client || !client.connected) {
-                alert('MQTT not connected. Please wait and try again.');
-                return;
-            }
+            console.log(`🔗 Connecting to device ${deviceId} with session ${sessionId}`);
 
-            // Register the session with MQTT (notify the device about new session)
-            const sessionTopic = `pierre-esp32/${deviceId}/session/register`;
-            const sessionData = {
-                sessionId: sessionId,
-                timestamp: Date.now(),
-                type: 'web_connect'
-            };
-
-            // Publish session registration
-            client.publish(sessionTopic, JSON.stringify(sessionData), { qos: 1 }, (err) => {
-                if (err) {
-                    console.error('Failed to register session:', err);
-                    alert('Failed to register session. Please try again.');
-                } else {
-                    console.log(`✅ Session registered: ${sessionId} for device: ${deviceId}`);
-                    // Wait a moment for registration to process, then open the serial page
-                    setTimeout(() => {
-                        const connectUrl = `https://mindenhato1998.github.io/pierre-serial/?device=${deviceId}&session=${sessionId}`;
-                        window.open(connectUrl, '_blank');
-                    }, 500);
-                }
-            });
+            // Simply open the serial page with the existing session ID
+            // The phone already has this session active
+            const connectUrl = `https://mindenhato1998.github.io/pierre-serial/?device=${deviceId}&session=${sessionId}`;
+            window.open(connectUrl, '_blank');
         }
 
         function connectMQTT() {
