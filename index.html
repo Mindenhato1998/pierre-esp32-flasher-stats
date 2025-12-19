@@ -376,6 +376,11 @@
 
                 // Use device's existing session ID or generate a new one
                 const sessionId = deviceData.sessionId || generateSessionId();
+                if (deviceData.sessionId) {
+                    console.log(`✅ Using existing session for ${deviceData.primaryId}: ${sessionId}`);
+                } else {
+                    console.log(`⚠️ No session found for ${deviceData.primaryId}, generated new: ${sessionId}`);
+                }
                 const connectUrl = `https://mindenhato1998.github.io/pierre-serial/?device=${deviceData.primaryId}&session=${sessionId}`;
 
                 deviceItem.innerHTML = `
@@ -530,14 +535,20 @@
                     try {
                         // Parse JSON message from StatisticsManager
                         const data = JSON.parse(message);
+                        console.log('📱 Device online data:', data);
                         deviceName = data.device_name || deviceId;
                         // Store session ID if provided
-                        if (data.session_id) {
+                        if (data.session_id || data.sessionId || data.session) {
+                            const sessionId = data.session_id || data.sessionId || data.session;
+                            console.log(`📝 Found session ID for ${deviceId}: ${sessionId}`);
                             if (connectedDevices.has(deviceId)) {
-                                connectedDevices.get(deviceId).sessionId = data.session_id;
+                                connectedDevices.get(deviceId).sessionId = sessionId;
                             }
+                        } else {
+                            console.log(`⚠️ No session ID in data for ${deviceId}:`, data);
                         }
                     } catch (e) {
+                        console.log('⚠️ Failed to parse online message:', message);
                         deviceName = message || deviceId;
                     }
                 } else if (status === 'offline') {
@@ -685,6 +696,9 @@
 
                 client.on('message', (topic, payload) => {
                     const message = payload.toString();
+
+                    // Debug: log all incoming messages
+                    console.log(`📨 MQTT Message on ${topic}:`, message);
                     processMessage(topic, message);
                 });
 
