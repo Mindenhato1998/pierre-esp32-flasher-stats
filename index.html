@@ -246,6 +246,67 @@
             align-items: center;
             flex: 1;
         }
+
+        /* Flash Counter Styles */
+        .flash-counter-section {
+            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+            border-radius: 12px;
+            padding: 2rem;
+            border: 1px solid #333;
+            margin-top: 2rem;
+            text-align: center;
+        }
+
+        .flash-counter-title {
+            font-size: 1.8rem;
+            font-weight: 700;
+            margin-bottom: 1rem;
+            background: linear-gradient(135deg, #ff6b6b 0%, #ffd93d 100%);
+            background-clip: text;
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .flash-counter-number {
+            font-size: 4rem;
+            font-weight: 900;
+            color: #00ff88;
+            text-shadow: 0 0 20px rgba(0, 255, 136, 0.5);
+            margin: 1rem 0;
+            animation: pulse 2s infinite;
+        }
+
+        .flash-counter-stats {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 1rem;
+            margin-top: 2rem;
+        }
+
+        .flash-stat-item {
+            background: rgba(255, 255, 255, 0.05);
+            padding: 1rem;
+            border-radius: 8px;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .flash-stat-label {
+            color: #888;
+            font-size: 0.9rem;
+            margin-bottom: 0.5rem;
+        }
+
+        .flash-stat-value {
+            color: #fff;
+            font-size: 1.5rem;
+            font-weight: 600;
+        }
+
+        .flash-device-name {
+            color: #aaa;
+            font-size: 0.9rem;
+            margin-top: 0.25rem;
+        }
     </style>
 </head>
 <body>
@@ -282,6 +343,29 @@
                 <canvas id="deviceChart" width="800" height="200"></canvas>
             </div>
         </div>
+
+        <!-- Global Flash Counter -->
+        <div class="flash-counter-section">
+            <h2 class="flash-counter-title">🔥 Global ESP32 Flash Counter</h2>
+            <div class="flash-counter-number" id="flashCounterNumber">0</div>
+            <p style="color: #888; margin-top: 0.5rem;">Total ESP32 devices flashed worldwide</p>
+
+            <div class="flash-counter-stats">
+                <div class="flash-stat-item">
+                    <div class="flash-stat-label">Unique Devices</div>
+                    <div class="flash-stat-value" id="uniqueDevicesCount">0</div>
+                </div>
+                <div class="flash-stat-item">
+                    <div class="flash-stat-label">Today's Flashes</div>
+                    <div class="flash-stat-value" id="todayFlashCount">0</div>
+                </div>
+                <div class="flash-stat-item">
+                    <div class="flash-stat-label">Top Device</div>
+                    <div class="flash-stat-value" id="topDeviceCount">-</div>
+                    <div class="flash-device-name" id="topDeviceName"></div>
+                </div>
+            </div>
+        </div>
     </div>
 
     <script src="https://unpkg.com/mqtt/dist/mqtt.min.js"></script>
@@ -303,6 +387,78 @@
         // Chart data - store device count over time (last 24 hours)
         const chartData = [];
         let deviceChart = null;
+
+        // Flash Counter data
+        let flashCounter = {
+            totalFlashes: 0,
+            devices: {},  // {deviceId: {name, count, lastSeen}}
+            sessions: new Set(),  // Track unique session IDs
+            todayFlashes: 0,
+            todayDate: new Date().toDateString()
+        };
+
+        // Load flash counter from localStorage
+        function loadFlashCounter() {
+            const saved = localStorage.getItem('pierreFlashCounter');
+            if (saved) {
+                try {
+                    const data = JSON.parse(saved);
+                    flashCounter.totalFlashes = data.totalFlashes || 0;
+                    flashCounter.devices = data.devices || {};
+                    flashCounter.sessions = new Set(data.sessions || []);
+
+                    // Check if it's a new day
+                    const today = new Date().toDateString();
+                    if (data.todayDate === today) {
+                        flashCounter.todayFlashes = data.todayFlashes || 0;
+                    } else {
+                        flashCounter.todayFlashes = 0;
+                    }
+                    flashCounter.todayDate = today;
+
+                    console.log(`📊 Loaded flash counter: ${flashCounter.totalFlashes} total flashes`);
+                } catch (e) {
+                    console.error('Failed to load flash counter:', e);
+                }
+            }
+        }
+
+        // Save flash counter to localStorage
+        function saveFlashCounter() {
+            const data = {
+                totalFlashes: flashCounter.totalFlashes,
+                devices: flashCounter.devices,
+                sessions: Array.from(flashCounter.sessions),
+                todayFlashes: flashCounter.todayFlashes,
+                todayDate: flashCounter.todayDate
+            };
+            localStorage.setItem('pierreFlashCounter', JSON.stringify(data));
+        }
+
+        // Update flash counter UI
+        function updateFlashCounterUI() {
+            document.getElementById('flashCounterNumber').textContent = flashCounter.totalFlashes;
+            document.getElementById('uniqueDevicesCount').textContent = Object.keys(flashCounter.devices).length;
+            document.getElementById('todayFlashCount').textContent = flashCounter.todayFlashes;
+
+            // Find top device
+            let topDevice = null;
+            let maxFlashes = 0;
+            Object.entries(flashCounter.devices).forEach(([id, device]) => {
+                if (device.count > maxFlashes) {
+                    maxFlashes = device.count;
+                    topDevice = device;
+                }
+            });
+
+            if (topDevice) {
+                document.getElementById('topDeviceCount').textContent = topDevice.count;
+                document.getElementById('topDeviceName').textContent = topDevice.name || 'Unknown';
+            } else {
+                document.getElementById('topDeviceCount').textContent = '-';
+                document.getElementById('topDeviceName').textContent = '';
+            }
+        }
 
         // DOM elements
         const connectionStatus = document.getElementById('connectionStatus');
@@ -528,6 +684,59 @@
                 const messageType = parts[4]; // 'status' or 'info'
 
                 console.log(`🔗 Serial message from device ${deviceId} with session ${sessionId}`);
+
+                // Check if this is a new flash session
+                const sessionKey = `${deviceId}_${sessionId}`;
+                if (!flashCounter.sessions.has(sessionKey)) {
+                    flashCounter.sessions.add(sessionKey);
+                    flashCounter.totalFlashes++;
+
+                    // Check if today is a new day
+                    const today = new Date().toDateString();
+                    if (flashCounter.todayDate !== today) {
+                        flashCounter.todayDate = today;
+                        flashCounter.todayFlashes = 1;
+                    } else {
+                        flashCounter.todayFlashes++;
+                    }
+
+                    // Extract device name from message
+                    let deviceName = 'Unknown Device';
+                    if (messageType === 'info' && message) {
+                        const infoParts = message.split('|');
+                        if (infoParts[0]) {
+                            deviceName = infoParts[0];
+                        }
+                    }
+
+                    // Update device stats
+                    const deviceKey = deviceId.substring(0, 8);
+                    if (!flashCounter.devices[deviceKey]) {
+                        flashCounter.devices[deviceKey] = {
+                            name: deviceName,
+                            count: 0,
+                            lastSeen: Date.now()
+                        };
+                    }
+                    flashCounter.devices[deviceKey].count++;
+                    flashCounter.devices[deviceKey].lastSeen = Date.now();
+                    if (deviceName !== 'Unknown Device') {
+                        flashCounter.devices[deviceKey].name = deviceName;
+                    }
+
+                    console.log(`🔥 Flash #${flashCounter.totalFlashes} detected! Device: ${deviceName}`);
+
+                    // Save and update UI
+                    saveFlashCounter();
+                    updateFlashCounterUI();
+
+                    // Animate the counter
+                    const counterElem = document.getElementById('flashCounterNumber');
+                    counterElem.style.transform = 'scale(1.2)';
+                    setTimeout(() => {
+                        counterElem.style.transform = 'scale(1)';
+                    }, 300);
+                }
 
                 // Ensure device exists in map
                 if (!connectedDevices.has(deviceId)) {
@@ -773,6 +982,10 @@
 
             // Add initial data point
             updateChart();
+
+            // Initialize flash counter
+            loadFlashCounter();
+            updateFlashCounterUI();
 
             // Setup reset button
             document.getElementById('resetChart').addEventListener('click', resetChart);
