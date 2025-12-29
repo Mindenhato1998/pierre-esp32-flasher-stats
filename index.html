@@ -501,7 +501,7 @@
         const COUNTER_TOPIC = 'pierre/global/flash_counter';
 
         // Store recent flash events (keep last 20)
-        const recentFlashEvents = [];
+        let recentFlashEvents = [];
 
         // Load flash counter from HiveMQ retained message
         function loadFlashCounter() {
@@ -522,6 +522,7 @@
                 sessions: Array.from(flashCounter.sessions).slice(-1000), // Keep last 1000 sessions
                 todayFlashes: flashCounter.todayFlashes,
                 todayDate: flashCounter.todayDate,
+                recentEvents: recentFlashEvents, // Save recent flash events
                 lastUpdate: new Date().toISOString()
             };
 
@@ -839,6 +840,13 @@
                     flashCounter.totalFlashes = data.totalFlashes || 0;
                     flashCounter.devices = data.devices || {};
                     flashCounter.sessions = new Set(data.sessions || []);
+
+                    // Load recent flash events if available
+                    if (data.recentEvents && Array.isArray(data.recentEvents)) {
+                        recentFlashEvents = data.recentEvents;
+                        console.log(`📋 Loaded ${recentFlashEvents.length} recent flash events from cloud`);
+                        updateFlashEventsUI();
+                    }
 
                     // Check if it's a new day
                     const today = new Date().toDateString();
