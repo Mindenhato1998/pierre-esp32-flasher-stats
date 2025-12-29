@@ -872,7 +872,9 @@
 
                     try {
                         // Parse flash event data
+                        console.log('📝 Raw message:', message);
                         const eventData = JSON.parse(message);
+                        console.log('📦 Parsed event data:', eventData);
 
                         flashCounter.totalFlashes++;
 
