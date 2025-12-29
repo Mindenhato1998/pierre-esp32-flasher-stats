@@ -307,6 +307,96 @@
             font-size: 0.9rem;
             margin-top: 0.25rem;
         }
+
+        /* Recent Flash Events */
+        .flash-events-section {
+            background: #111;
+            border-radius: 12px;
+            padding: 2rem;
+            border: 1px solid #333;
+            margin-top: 2rem;
+        }
+
+        .flash-events-title {
+            font-size: 1.5rem;
+            font-weight: 600;
+            color: #fff;
+            margin-bottom: 1rem;
+        }
+
+        .flash-events-list {
+            max-height: 400px;
+            overflow-y: auto;
+        }
+
+        .flash-event-item {
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 8px;
+            padding: 1rem;
+            margin-bottom: 0.5rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            transition: all 0.3s ease;
+        }
+
+        .flash-event-item:hover {
+            background: rgba(255, 255, 255, 0.08);
+            border-color: rgba(255, 255, 255, 0.2);
+        }
+
+        .flash-event-left {
+            flex: 1;
+        }
+
+        .flash-event-device {
+            font-weight: 600;
+            color: #00ff88;
+            margin-bottom: 0.25rem;
+        }
+
+        .flash-event-details {
+            font-size: 0.85rem;
+            color: #888;
+        }
+
+        .flash-event-right {
+            text-align: right;
+        }
+
+        .flash-event-time {
+            font-size: 0.85rem;
+            color: #666;
+        }
+
+        .flash-event-firmware {
+            display: inline-block;
+            padding: 0.25rem 0.5rem;
+            border-radius: 4px;
+            font-size: 0.75rem;
+            font-weight: 600;
+            margin-top: 0.25rem;
+        }
+
+        .firmware-production {
+            background: rgba(0, 123, 255, 0.2);
+            color: #4da3ff;
+            border: 1px solid rgba(0, 123, 255, 0.3);
+        }
+
+        .firmware-custom {
+            background: rgba(255, 193, 7, 0.2);
+            color: #ffc107;
+            border: 1px solid rgba(255, 193, 7, 0.3);
+        }
+
+        .no-flash-events {
+            text-align: center;
+            color: #666;
+            font-style: italic;
+            padding: 2rem;
+        }
     </style>
 </head>
 <body>
@@ -366,6 +456,16 @@
                 </div>
             </div>
         </div>
+
+        <!-- Recent Flash Events -->
+        <div class="flash-events-section">
+            <h2 class="flash-events-title">📋 Recent Flash Events</h2>
+            <div class="flash-events-list" id="flashEventsList">
+                <div class="no-flash-events" id="noFlashEvents">
+                    <p>No flash events yet today</p>
+                </div>
+            </div>
+        </div>
     </div>
 
     <script src="https://unpkg.com/mqtt/dist/mqtt.min.js"></script>
@@ -399,6 +499,9 @@
 
         let isUpdatingCounter = false;  // Prevent race conditions
         const COUNTER_TOPIC = 'pierre/global/flash_counter';
+
+        // Store recent flash events (keep last 20)
+        const recentFlashEvents = [];
 
         // Load flash counter from HiveMQ retained message
         function loadFlashCounter() {
@@ -458,6 +561,58 @@
                 document.getElementById('topDeviceCount').textContent = '-';
                 document.getElementById('topDeviceName').textContent = '';
             }
+        }
+
+        // Update recent flash events list
+        function updateFlashEventsUI() {
+            const eventsList = document.getElementById('flashEventsList');
+            const noEvents = document.getElementById('noFlashEvents');
+
+            if (recentFlashEvents.length === 0) {
+                eventsList.innerHTML = '';
+                eventsList.appendChild(noEvents);
+                return;
+            }
+
+            // Clear the list
+            eventsList.innerHTML = '';
+
+            // Add each event
+            recentFlashEvents.forEach(event => {
+                const eventDiv = document.createElement('div');
+                eventDiv.className = 'flash-event-item';
+
+                const firmwareClass = event.firmwareType === 'custom' ? 'firmware-custom' : 'firmware-production';
+                const firmwareLabel = event.firmwareType === 'custom' ? 'CUSTOM' : 'PRODUCTION';
+
+                // Format flash size
+                const sizeKB = (event.flashSize / 1024).toFixed(0);
+                const sizeMB = (event.flashSize / (1024 * 1024)).toFixed(2);
+                const sizeStr = event.flashSize > 1048576 ? `${sizeMB} MB` : `${sizeKB} KB`;
+
+                // Format time
+                const time = new Date(event.timestamp);
+                const timeStr = time.toLocaleTimeString();
+                const dateStr = time.toLocaleDateString();
+
+                // Format duration
+                const durationSec = (event.flashTime / 1000).toFixed(1);
+
+                eventDiv.innerHTML = `
+                    <div class="flash-event-left">
+                        <div class="flash-event-device">${event.deviceName || event.deviceId}</div>
+                        <div class="flash-event-details">
+                            Size: ${sizeStr} | Duration: ${durationSec}s | Session: ${event.sessionId.slice(0, 8)}
+                        </div>
+                    </div>
+                    <div class="flash-event-right">
+                        <div class="flash-event-time">${timeStr}</div>
+                        <div class="flash-event-firmware ${firmwareClass}">${firmwareLabel}</div>
+                    </div>
+                `;
+
+                eventsList.appendChild(eventDiv);
+            });
         }
 
         // DOM elements
@@ -757,8 +912,26 @@
                         console.log(`   Size: ${eventData.flashSize} bytes`);
                         console.log(`   Time: ${eventData.flashTime}ms`);
 
+                        // Add to recent flash events
+                        const flashEvent = {
+                            deviceId: deviceId,
+                            deviceName: eventData.deviceName || 'Unknown Device',
+                            firmwareType: fwType,
+                            flashSize: eventData.flashSize || 0,
+                            flashTime: eventData.flashTime || 0,
+                            sessionId: eventData.sessionId || '',
+                            timestamp: eventData.timestamp || new Date().toISOString()
+                        };
+
+                        // Add to beginning of array and keep only last 20
+                        recentFlashEvents.unshift(flashEvent);
+                        if (recentFlashEvents.length > 20) {
+                            recentFlashEvents.pop();
+                        }
+
                         // Update UI immediately
                         updateFlashCounterUI();
+                        updateFlashEventsUI();
 
                         // Animate the counter
                         const counterElem = document.getElementById('flashCounterNumber');
