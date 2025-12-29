@@ -503,19 +503,37 @@
         // Store recent flash events (keep last 20)
         let recentFlashEvents = [];
 
-        // Load flash counter from HiveMQ retained message
+        // Load flash counter from localStorage first, then HiveMQ will update if needed
         function loadFlashCounter() {
-            // Will be loaded when we subscribe to the counter topic
-            console.log('📊 Flash counter will load from HiveMQ cloud...');
-        }
+            // Try to load from localStorage first
+            try {
+                const saved = localStorage.getItem('pierreFlashCounter');
+                if (saved) {
+                    const data = JSON.parse(saved);
+                    flashCounter.totalFlashes = data.totalFlashes || 0;
+                    flashCounter.devices = data.devices || {};
+                    flashCounter.sessions = new Set(data.sessions || []);
+                    flashCounter.todayFlashes = data.todayFlashes || 0;
+                    flashCounter.todayDate = data.todayDate || new Date().toDateString();
 
-        // Save flash counter to HiveMQ as retained message
-        function saveFlashCounter() {
-            if (!client || !client.connected || isUpdatingCounter) {
-                console.log('⏳ Waiting for connection...');
-                return;
+                    if (data.recentEvents && Array.isArray(data.recentEvents)) {
+                        recentFlashEvents = data.recentEvents;
+                    }
+
+                    console.log('💾 Loaded counter from localStorage:', flashCounter.totalFlashes);
+                    updateFlashCounterUI();
+                    updateFlashEventsUI();
+                }
+            } catch (e) {
+                console.error('Failed to load from localStorage:', e);
             }
 
+            // HiveMQ will update with latest data when connected
+            console.log('📊 Flash counter will sync with HiveMQ cloud...');
+        }
+
+        // Save flash counter to both localStorage and HiveMQ
+        function saveFlashCounter() {
             const data = {
                 totalFlashes: flashCounter.totalFlashes,
                 devices: flashCounter.devices,
@@ -526,17 +544,28 @@
                 lastUpdate: new Date().toISOString()
             };
 
-            // Publish as retained message so all clients see the same count
-            client.publish(COUNTER_TOPIC, JSON.stringify(data), {
-                retain: true,
-                qos: 1
-            }, (err) => {
-                if (err) {
-                    console.error('❌ Failed to save counter:', err);
-                } else {
-                    console.log('☁️ Counter saved to cloud');
-                }
-            });
+            // Save to localStorage for persistence
+            try {
+                localStorage.setItem('pierreFlashCounter', JSON.stringify(data));
+                console.log('💾 Counter saved to localStorage');
+            } catch (e) {
+                console.error('Failed to save to localStorage:', e);
+            }
+
+            // Also save to HiveMQ if connected
+            if (client && client.connected && !isUpdatingCounter) {
+                // Publish as retained message so all clients see the same count
+                client.publish(COUNTER_TOPIC, JSON.stringify(data), {
+                    retain: true,
+                    qos: 1
+                }, (err) => {
+                    if (err) {
+                        console.error('❌ Failed to save to HiveMQ:', err);
+                    } else {
+                        console.log('☁️ Counter saved to HiveMQ cloud');
+                    }
+                });
+            }
         }
 
         // Update flash counter UI
@@ -837,31 +866,44 @@
             if (topic === COUNTER_TOPIC) {
                 try {
                     const data = JSON.parse(message);
-                    flashCounter.totalFlashes = data.totalFlashes || 0;
-                    flashCounter.devices = data.devices || {};
-                    flashCounter.sessions = new Set(data.sessions || []);
 
-                    // Load recent flash events if available
-                    if (data.recentEvents && Array.isArray(data.recentEvents)) {
-                        recentFlashEvents = data.recentEvents;
-                        console.log(`📋 Loaded ${recentFlashEvents.length} recent flash events from cloud`);
-                        updateFlashEventsUI();
-                    }
+                    // Only update if cloud data is newer or has more flashes
+                    if (data.totalFlashes >= flashCounter.totalFlashes) {
+                        flashCounter.totalFlashes = data.totalFlashes || 0;
+                        flashCounter.devices = data.devices || {};
+                        flashCounter.sessions = new Set(data.sessions || []);
 
-                    // Check if it's a new day
-                    const today = new Date().toDateString();
-                    if (data.todayDate === today) {
-                        flashCounter.todayFlashes = data.todayFlashes || 0;
+                        // Load recent flash events if available
+                        if (data.recentEvents && Array.isArray(data.recentEvents)) {
+                            recentFlashEvents = data.recentEvents;
+                            console.log(`📋 Loaded ${recentFlashEvents.length} recent flash events from cloud`);
+                            updateFlashEventsUI();
+                        }
+
+                        // Check if it's a new day
+                        const today = new Date().toDateString();
+                        if (data.todayDate === today) {
+                            flashCounter.todayFlashes = data.todayFlashes || 0;
+                        } else {
+                            // It's a new day, reset today's count
+                            flashCounter.todayFlashes = 0;
+                            flashCounter.todayDate = today;
+                            // Save the reset
+                            setTimeout(() => saveFlashCounter(), 1000);
+                        }
+
+                        console.log(`☁️ Synced counter from cloud: ${flashCounter.totalFlashes} total flashes`);
+                        updateFlashCounterUI();
+
+                        // Save to localStorage to keep in sync
+                        try {
+                            localStorage.setItem('pierreFlashCounter', JSON.stringify(data));
+                        } catch (e) {
+                            console.error('Failed to update localStorage:', e);
+                        }
                     } else {
-                        // It's a new day, reset today's count
-                        flashCounter.todayFlashes = 0;
-                        flashCounter.todayDate = today;
-                        // Save the reset
-                        setTimeout(() => saveFlashCounter(), 1000);
+                        console.log(`⏭️ Skipping cloud sync - local data is newer (local: ${flashCounter.totalFlashes}, cloud: ${data.totalFlashes})`);
                     }
-
-                    console.log(`☁️ Loaded counter from cloud: ${flashCounter.totalFlashes} total flashes`);
-                    updateFlashCounterUI();
                 } catch (e) {
                     console.error('Failed to parse counter data:', e);
                 }
