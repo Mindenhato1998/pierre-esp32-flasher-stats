@@ -641,6 +641,9 @@ fun ESP32FlasherApp(
     var customFirmwareFile by remember { mutableStateOf<File?>(null) }
     var longPressJob by remember { mutableStateOf<Job?>(null) }
     var isPressing by remember { mutableStateOf(false) }
+
+    // Flash timing for MQTT event
+    var flashStartTime by remember { mutableStateOf(0L) }
     
     // Serial Monitor auto-scroll states
     var isSerialAutoScrollEnabled by remember { mutableStateOf(true) }
@@ -883,6 +886,37 @@ fun ESP32FlasherApp(
             kotlinx.coroutines.GlobalScope.launch {
                 kotlinx.coroutines.delay(2000)
                 showSuccessBorder = false
+            }
+
+            // Send flash event to MQTT for global counter
+            try {
+                // Extract flash size from message if available
+                val flashSize = message
+                    .substringAfter("Total ", "")
+                    .substringBefore(" bytes", "0")
+                    .replace(",", "")
+                    .toLongOrNull() ?: 0L
+
+                // Determine firmware type
+                val firmwareType = when {
+                    customFirmwareFile != null -> "custom"
+                    message.contains("latest production") -> "production_updated"
+                    else -> "production"
+                }
+
+                // Calculate flash time (approximate - from button click to success)
+                val flashTime = System.currentTimeMillis() - flashStartTime
+
+                // Publish flash event
+                mqttManager?.publishFlashEvent(
+                    firmwareType = firmwareType,
+                    flashSize = flashSize,
+                    flashTime = flashTime
+                )
+
+                Log.d("MainActivity", "Flash event published: $firmwareType, size: $flashSize, time: ${flashTime}ms")
+            } catch (e: Exception) {
+                Log.e("MainActivity", "Failed to publish flash event: ${e.message}")
             }
         }
     }
@@ -1561,7 +1595,8 @@ fun ESP32FlasherApp(
                 if (customFirmwareFile != null && downloadStatus == "CUSTOM") {
                     // Flash custom firmware
                     isFlashing = true
-                    
+                    flashStartTime = System.currentTimeMillis() // Record flash start time
+
                     try {
                         onLog("Flashing custom firmware...")
 
@@ -1739,6 +1774,7 @@ fun ESP32FlasherApp(
 
                 } else {
                     // Original production firmware flow
+                    flashStartTime = System.currentTimeMillis() // Record flash start time
                     isDownloading = true
                     downloadStatus = "Downloading..."
                     onLog("Downloading latest production firmware...")

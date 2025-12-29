@@ -705,6 +705,83 @@
                 return;
             }
 
+            // Handle pierre/flash/events/DEVICE_ID messages (NEW - actual flash events)
+            if (parts[1] === 'flash' && parts[2] === 'events' && parts.length >= 4) {
+                const deviceId = parts[3];
+
+                console.log(`🎯 Flash event from device ${deviceId}`);
+
+                if (!isUpdatingCounter) {
+                    // Set flag to prevent race conditions
+                    isUpdatingCounter = true;
+
+                    try {
+                        // Parse flash event data
+                        const eventData = JSON.parse(message);
+
+                        flashCounter.totalFlashes++;
+
+                        // Check if today is a new day
+                        const today = new Date().toDateString();
+                        if (flashCounter.todayDate !== today) {
+                            flashCounter.todayDate = today;
+                            flashCounter.todayFlashes = 1;
+                        } else {
+                            flashCounter.todayFlashes++;
+                        }
+
+                        // Update device stats
+                        const deviceKey = deviceId.substring(0, 8);
+                        if (!flashCounter.devices[deviceKey]) {
+                            flashCounter.devices[deviceKey] = {
+                                name: eventData.deviceName || 'Unknown Device',
+                                count: 0,
+                                lastSeen: Date.now(),
+                                firmwareTypes: {}
+                            };
+                        }
+                        flashCounter.devices[deviceKey].count++;
+                        flashCounter.devices[deviceKey].lastSeen = Date.now();
+                        flashCounter.devices[deviceKey].name = eventData.deviceName || flashCounter.devices[deviceKey].name;
+
+                        // Track firmware types
+                        const fwType = eventData.firmwareType || 'unknown';
+                        if (!flashCounter.devices[deviceKey].firmwareTypes[fwType]) {
+                            flashCounter.devices[deviceKey].firmwareTypes[fwType] = 0;
+                        }
+                        flashCounter.devices[deviceKey].firmwareTypes[fwType]++;
+
+                        console.log(`🔥 Flash #${flashCounter.totalFlashes} completed!`);
+                        console.log(`   Device: ${eventData.deviceName} (${deviceKey})`);
+                        console.log(`   Firmware: ${fwType}`);
+                        console.log(`   Size: ${eventData.flashSize} bytes`);
+                        console.log(`   Time: ${eventData.flashTime}ms`);
+
+                        // Update UI immediately
+                        updateFlashCounterUI();
+
+                        // Animate the counter
+                        const counterElem = document.getElementById('flashCounterNumber');
+                        counterElem.style.transform = 'scale(1.3)';
+                        counterElem.style.color = '#00ff88';
+                        setTimeout(() => {
+                            counterElem.style.transform = 'scale(1)';
+                        }, 500);
+
+                        // Save to cloud
+                        saveFlashCounter();
+
+                    } catch (e) {
+                        console.error('Failed to parse flash event:', e);
+                    } finally {
+                        setTimeout(() => {
+                            isUpdatingCounter = false;
+                        }, 1000); // Shorter delay for real flash events
+                    }
+                }
+                return;
+            }
+
             // Handle pierre/serial/DEVICE_ID/SESSION_ID/status or /info messages
             if (parts[1] === 'serial' && parts.length >= 5) {
                 const deviceId = parts[2];
@@ -713,66 +790,8 @@
 
                 console.log(`🔗 Serial message from device ${deviceId} with session ${sessionId}`);
 
-                // Check if this is a new flash session
-                const sessionKey = `${deviceId}_${sessionId}`;
-                if (!flashCounter.sessions.has(sessionKey) && !isUpdatingCounter) {
-                    // Set flag to prevent race conditions
-                    isUpdatingCounter = true;
-
-                    flashCounter.sessions.add(sessionKey);
-                    flashCounter.totalFlashes++;
-
-                    // Check if today is a new day
-                    const today = new Date().toDateString();
-                    if (flashCounter.todayDate !== today) {
-                        flashCounter.todayDate = today;
-                        flashCounter.todayFlashes = 1;
-                    } else {
-                        flashCounter.todayFlashes++;
-                    }
-
-                    // Extract device name from message
-                    let deviceName = 'Unknown Device';
-                    if (messageType === 'info' && message) {
-                        const infoParts = message.split('|');
-                        if (infoParts[0]) {
-                            deviceName = infoParts[0];
-                        }
-                    }
-
-                    // Update device stats
-                    const deviceKey = deviceId.substring(0, 8);
-                    if (!flashCounter.devices[deviceKey]) {
-                        flashCounter.devices[deviceKey] = {
-                            name: deviceName,
-                            count: 0,
-                            lastSeen: Date.now()
-                        };
-                    }
-                    flashCounter.devices[deviceKey].count++;
-                    flashCounter.devices[deviceKey].lastSeen = Date.now();
-                    if (deviceName !== 'Unknown Device') {
-                        flashCounter.devices[deviceKey].name = deviceName;
-                    }
-
-                    console.log(`🔥 Flash #${flashCounter.totalFlashes} detected! Device: ${deviceName}`);
-
-                    // Update UI immediately
-                    updateFlashCounterUI();
-
-                    // Animate the counter
-                    const counterElem = document.getElementById('flashCounterNumber');
-                    counterElem.style.transform = 'scale(1.2)';
-                    setTimeout(() => {
-                        counterElem.style.transform = 'scale(1)';
-                    }, 300);
-
-                    // Save to cloud and reset flag
-                    saveFlashCounter();
-                    setTimeout(() => {
-                        isUpdatingCounter = false;
-                    }, 2000); // Wait 2 seconds before allowing next update
-                }
+                // NOTE: We no longer count serial sessions as flashes
+                // Real flash events come from pierre/flash/events/* topic
 
                 // Ensure device exists in map
                 if (!connectedDevices.has(deviceId)) {

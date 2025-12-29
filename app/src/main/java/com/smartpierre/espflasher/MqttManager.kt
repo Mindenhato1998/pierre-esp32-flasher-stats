@@ -261,6 +261,50 @@ class MqttManager(
     }
 
     /**
+     * Publish flash event to MQTT for global counter
+     * Called when ESP32 flash is successful
+     */
+    fun publishFlashEvent(
+        firmwareType: String = "production",
+        flashSize: Long = 0L,
+        flashTime: Long = 0L
+    ) {
+        if (!isConnected || mqttClient == null) {
+            Log.w("MqttManager", "Cannot publish flash event - not connected")
+            return
+        }
+
+        try {
+            // Create flash event data
+            val flashData = buildString {
+                append("{")
+                append("\"deviceId\":\"$deviceId\",")
+                append("\"sessionId\":\"$sessionId\",")
+                append("\"deviceName\":\"${Build.MANUFACTURER} ${Build.MODEL}\",")
+                append("\"firmwareType\":\"$firmwareType\",")
+                append("\"flashSize\":$flashSize,")
+                append("\"flashTime\":$flashTime,")
+                append("\"timestamp\":${System.currentTimeMillis()},")
+                append("\"androidVersion\":\"${Build.VERSION.RELEASE}\"")
+                append("}")
+            }
+
+            // Publish to flash events topic
+            val flashTopic = "pierre/flash/events/$deviceId"
+            val message = MqttMessage(flashData.toByteArray()).apply {
+                qos = 1 // QoS 1 for flash events to ensure delivery
+                isRetained = false
+            }
+
+            mqttClient?.publish(flashTopic, message)
+            Log.d("MqttManager", "Published flash event: $firmwareType, size: $flashSize")
+
+        } catch (e: Exception) {
+            Log.e("MqttManager", "Failed to publish flash event: ${e.message}")
+        }
+    }
+
+    /**
      * Publish buffer configuration to inform web clients about circular buffer
      */
     private fun publishBufferConfig() {

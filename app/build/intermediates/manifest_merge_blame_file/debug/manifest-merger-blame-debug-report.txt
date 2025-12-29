@@ -1,47 +1,47 @@
 1<?xml version="1.0" encoding="utf-8"?>
 2<manifest xmlns:android="http://schemas.android.com/apk/res/android"
 3    package="com.smartpierre.espflasher"
-4    android:versionCode="20004"
-5    android:versionName="2.0.4" >
+4    android:versionCode="20006"
+5    android:versionName="2.0.6" >
 6
 7    <uses-sdk
 8        android:minSdkVersion="26"
 9        android:targetSdkVersion="34" />
 10
 11    <uses-feature
-11-->/home/testuser/pierre-stats-dashboard/app/src/main/AndroidManifest.xml:3:5-86
+11-->/home/testuser/Downloads/pierre-esp32-flasher-stats/app/src/main/AndroidManifest.xml:3:5-86
 12        android:name="android.hardware.usb.host"
-12-->/home/testuser/pierre-stats-dashboard/app/src/main/AndroidManifest.xml:3:19-59
+12-->/home/testuser/Downloads/pierre-esp32-flasher-stats/app/src/main/AndroidManifest.xml:3:19-59
 13        android:required="true" />
-13-->/home/testuser/pierre-stats-dashboard/app/src/main/AndroidManifest.xml:3:60-83
+13-->/home/testuser/Downloads/pierre-esp32-flasher-stats/app/src/main/AndroidManifest.xml:3:60-83
 14
 15    <uses-permission android:name="android.permission.USB_PERMISSION" />
-15-->/home/testuser/pierre-stats-dashboard/app/src/main/AndroidManifest.xml:4:5-73
-15-->/home/testuser/pierre-stats-dashboard/app/src/main/AndroidManifest.xml:4:22-70
+15-->/home/testuser/Downloads/pierre-esp32-flasher-stats/app/src/main/AndroidManifest.xml:4:5-73
+15-->/home/testuser/Downloads/pierre-esp32-flasher-stats/app/src/main/AndroidManifest.xml:4:22-70
 16    <uses-permission android:name="android.permission.INTERNET" />
-16-->/home/testuser/pierre-stats-dashboard/app/src/main/AndroidManifest.xml:5:5-67
-16-->/home/testuser/pierre-stats-dashboard/app/src/main/AndroidManifest.xml:5:22-64
+16-->/home/testuser/Downloads/pierre-esp32-flasher-stats/app/src/main/AndroidManifest.xml:5:5-67
+16-->/home/testuser/Downloads/pierre-esp32-flasher-stats/app/src/main/AndroidManifest.xml:5:22-64
 17    <uses-permission android:name="android.permission.WAKE_LOCK" />
-17-->/home/testuser/pierre-stats-dashboard/app/src/main/AndroidManifest.xml:6:5-68
-17-->/home/testuser/pierre-stats-dashboard/app/src/main/AndroidManifest.xml:6:22-65
+17-->/home/testuser/Downloads/pierre-esp32-flasher-stats/app/src/main/AndroidManifest.xml:6:5-68
+17-->/home/testuser/Downloads/pierre-esp32-flasher-stats/app/src/main/AndroidManifest.xml:6:22-65
 18    <uses-permission android:name="android.permission.VIBRATE" />
-18-->/home/testuser/pierre-stats-dashboard/app/src/main/AndroidManifest.xml:7:5-66
-18-->/home/testuser/pierre-stats-dashboard/app/src/main/AndroidManifest.xml:7:22-63
+18-->/home/testuser/Downloads/pierre-esp32-flasher-stats/app/src/main/AndroidManifest.xml:7:5-66
+18-->/home/testuser/Downloads/pierre-esp32-flasher-stats/app/src/main/AndroidManifest.xml:7:22-63
 19    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
-19-->/home/testuser/pierre-stats-dashboard/app/src/main/AndroidManifest.xml:8:5-77
-19-->/home/testuser/pierre-stats-dashboard/app/src/main/AndroidManifest.xml:8:22-74
+19-->/home/testuser/Downloads/pierre-esp32-flasher-stats/app/src/main/AndroidManifest.xml:8:5-77
+19-->/home/testuser/Downloads/pierre-esp32-flasher-stats/app/src/main/AndroidManifest.xml:8:22-74
 20    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_DATA_SYNC" />
-20-->/home/testuser/pierre-stats-dashboard/app/src/main/AndroidManifest.xml:9:5-87
-20-->/home/testuser/pierre-stats-dashboard/app/src/main/AndroidManifest.xml:9:22-84
+20-->/home/testuser/Downloads/pierre-esp32-flasher-stats/app/src/main/AndroidManifest.xml:9:5-87
+20-->/home/testuser/Downloads/pierre-esp32-flasher-stats/app/src/main/AndroidManifest.xml:9:22-84
 21    <uses-permission android:name="android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS" />
-21-->/home/testuser/pierre-stats-dashboard/app/src/main/AndroidManifest.xml:10:5-95
-21-->/home/testuser/pierre-stats-dashboard/app/src/main/AndroidManifest.xml:10:22-92
+21-->/home/testuser/Downloads/pierre-esp32-flasher-stats/app/src/main/AndroidManifest.xml:10:5-95
+21-->/home/testuser/Downloads/pierre-esp32-flasher-stats/app/src/main/AndroidManifest.xml:10:22-92
 22    <uses-permission android:name="android.permission.DISABLE_KEYGUARD" />
-22-->/home/testuser/pierre-stats-dashboard/app/src/main/AndroidManifest.xml:11:5-75
-22-->/home/testuser/pierre-stats-dashboard/app/src/main/AndroidManifest.xml:11:22-72
+22-->/home/testuser/Downloads/pierre-esp32-flasher-stats/app/src/main/AndroidManifest.xml:11:5-75
+22-->/home/testuser/Downloads/pierre-esp32-flasher-stats/app/src/main/AndroidManifest.xml:11:22-72
 23    <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW" />
-23-->/home/testuser/pierre-stats-dashboard/app/src/main/AndroidManifest.xml:12:5-78
-23-->/home/testuser/pierre-stats-dashboard/app/src/main/AndroidManifest.xml:12:22-75
+23-->/home/testuser/Downloads/pierre-esp32-flasher-stats/app/src/main/AndroidManifest.xml:12:5-78
+23-->/home/testuser/Downloads/pierre-esp32-flasher-stats/app/src/main/AndroidManifest.xml:12:22-75
 24
 25    <permission
 25-->[androidx.core:core:1.10.1] /home/testuser/.gradle/caches/transforms-3/9e08c15f06c6065d3c93f6fc3da051d5/transformed/core-1.10.1/AndroidManifest.xml:22:5-24:47
@@ -55,80 +55,80 @@
 29-->[androidx.core:core:1.10.1] /home/testuser/.gradle/caches/transforms-3/9e08c15f06c6065d3c93f6fc3da051d5/transformed/core-1.10.1/AndroidManifest.xml:26:22-94
 30
 31    <application
-31-->/home/testuser/pierre-stats-dashboard/app/src/main/AndroidManifest.xml:14:5-51:19
+31-->/home/testuser/Downloads/pierre-esp32-flasher-stats/app/src/main/AndroidManifest.xml:14:5-51:19
 32        android:allowBackup="true"
-32-->/home/testuser/pierre-stats-dashboard/app/src/main/AndroidManifest.xml:15:9-35
+32-->/home/testuser/Downloads/pierre-esp32-flasher-stats/app/src/main/AndroidManifest.xml:15:9-35
 33        android:appComponentFactory="androidx.core.app.CoreComponentFactory"
 33-->[androidx.core:core:1.10.1] /home/testuser/.gradle/caches/transforms-3/9e08c15f06c6065d3c93f6fc3da051d5/transformed/core-1.10.1/AndroidManifest.xml:28:18-86
 34        android:debuggable="true"
 35        android:extractNativeLibs="false"
 36        android:icon="@mipmap/ic_launcher"
-36-->/home/testuser/pierre-stats-dashboard/app/src/main/AndroidManifest.xml:16:9-43
+36-->/home/testuser/Downloads/pierre-esp32-flasher-stats/app/src/main/AndroidManifest.xml:16:9-43
 37        android:label="@string/app_name"
-37-->/home/testuser/pierre-stats-dashboard/app/src/main/AndroidManifest.xml:17:9-41
+37-->/home/testuser/Downloads/pierre-esp32-flasher-stats/app/src/main/AndroidManifest.xml:17:9-41
 38        android:supportsRtl="true"
-38-->/home/testuser/pierre-stats-dashboard/app/src/main/AndroidManifest.xml:18:9-35
+38-->/home/testuser/Downloads/pierre-esp32-flasher-stats/app/src/main/AndroidManifest.xml:18:9-35
 39        android:theme="@style/AppTheme" >
-39-->/home/testuser/pierre-stats-dashboard/app/src/main/AndroidManifest.xml:19:9-40
+39-->/home/testuser/Downloads/pierre-esp32-flasher-stats/app/src/main/AndroidManifest.xml:19:9-40
 40        <activity
-40-->/home/testuser/pierre-stats-dashboard/app/src/main/AndroidManifest.xml:20:9-35:20
+40-->/home/testuser/Downloads/pierre-esp32-flasher-stats/app/src/main/AndroidManifest.xml:20:9-35:20
 41            android:name="com.smartpierre.espflasher.MainActivity"
-41-->/home/testuser/pierre-stats-dashboard/app/src/main/AndroidManifest.xml:21:13-41
+41-->/home/testuser/Downloads/pierre-esp32-flasher-stats/app/src/main/AndroidManifest.xml:21:13-41
 42            android:configChanges="orientation|screenSize|keyboardHidden"
-42-->/home/testuser/pierre-stats-dashboard/app/src/main/AndroidManifest.xml:24:13-74
+42-->/home/testuser/Downloads/pierre-esp32-flasher-stats/app/src/main/AndroidManifest.xml:24:13-74
 43            android:exported="true"
-43-->/home/testuser/pierre-stats-dashboard/app/src/main/AndroidManifest.xml:22:13-36
+43-->/home/testuser/Downloads/pierre-esp32-flasher-stats/app/src/main/AndroidManifest.xml:22:13-36
 44            android:launchMode="singleTask" >
-44-->/home/testuser/pierre-stats-dashboard/app/src/main/AndroidManifest.xml:23:13-44
+44-->/home/testuser/Downloads/pierre-esp32-flasher-stats/app/src/main/AndroidManifest.xml:23:13-44
 45            <intent-filter>
-45-->/home/testuser/pierre-stats-dashboard/app/src/main/AndroidManifest.xml:25:13-28:29
+45-->/home/testuser/Downloads/pierre-esp32-flasher-stats/app/src/main/AndroidManifest.xml:25:13-28:29
 46                <action android:name="android.intent.action.MAIN" />
-46-->/home/testuser/pierre-stats-dashboard/app/src/main/AndroidManifest.xml:26:17-69
-46-->/home/testuser/pierre-stats-dashboard/app/src/main/AndroidManifest.xml:26:25-66
+46-->/home/testuser/Downloads/pierre-esp32-flasher-stats/app/src/main/AndroidManifest.xml:26:17-69
+46-->/home/testuser/Downloads/pierre-esp32-flasher-stats/app/src/main/AndroidManifest.xml:26:25-66
 47
 48                <category android:name="android.intent.category.LAUNCHER" />
-48-->/home/testuser/pierre-stats-dashboard/app/src/main/AndroidManifest.xml:27:17-77
-48-->/home/testuser/pierre-stats-dashboard/app/src/main/AndroidManifest.xml:27:27-74
+48-->/home/testuser/Downloads/pierre-esp32-flasher-stats/app/src/main/AndroidManifest.xml:27:17-77
+48-->/home/testuser/Downloads/pierre-esp32-flasher-stats/app/src/main/AndroidManifest.xml:27:27-74
 49            </intent-filter>
 50            <intent-filter>
-50-->/home/testuser/pierre-stats-dashboard/app/src/main/AndroidManifest.xml:29:13-31:29
+50-->/home/testuser/Downloads/pierre-esp32-flasher-stats/app/src/main/AndroidManifest.xml:29:13-31:29
 51                <action android:name="android.hardware.usb.action.USB_DEVICE_ATTACHED" />
-51-->/home/testuser/pierre-stats-dashboard/app/src/main/AndroidManifest.xml:30:17-90
-51-->/home/testuser/pierre-stats-dashboard/app/src/main/AndroidManifest.xml:30:25-87
+51-->/home/testuser/Downloads/pierre-esp32-flasher-stats/app/src/main/AndroidManifest.xml:30:17-90
+51-->/home/testuser/Downloads/pierre-esp32-flasher-stats/app/src/main/AndroidManifest.xml:30:25-87
 52            </intent-filter>
 53
 54            <meta-data
-54-->/home/testuser/pierre-stats-dashboard/app/src/main/AndroidManifest.xml:32:13-34:61
+54-->/home/testuser/Downloads/pierre-esp32-flasher-stats/app/src/main/AndroidManifest.xml:32:13-34:61
 55                android:name="android.hardware.usb.action.USB_DEVICE_ATTACHED"
-55-->/home/testuser/pierre-stats-dashboard/app/src/main/AndroidManifest.xml:33:17-79
+55-->/home/testuser/Downloads/pierre-esp32-flasher-stats/app/src/main/AndroidManifest.xml:33:17-79
 56                android:resource="@xml/usb_device_filter" />
-56-->/home/testuser/pierre-stats-dashboard/app/src/main/AndroidManifest.xml:34:17-58
+56-->/home/testuser/Downloads/pierre-esp32-flasher-stats/app/src/main/AndroidManifest.xml:34:17-58
 57        </activity>
 58
 59        <service
-59-->/home/testuser/pierre-stats-dashboard/app/src/main/AndroidManifest.xml:37:9-40:40
+59-->/home/testuser/Downloads/pierre-esp32-flasher-stats/app/src/main/AndroidManifest.xml:37:9-40:40
 60            android:name="com.smartpierre.espflasher.SerialMonitorService"
-60-->/home/testuser/pierre-stats-dashboard/app/src/main/AndroidManifest.xml:38:13-49
+60-->/home/testuser/Downloads/pierre-esp32-flasher-stats/app/src/main/AndroidManifest.xml:38:13-49
 61            android:exported="false"
-61-->/home/testuser/pierre-stats-dashboard/app/src/main/AndroidManifest.xml:40:13-37
+61-->/home/testuser/Downloads/pierre-esp32-flasher-stats/app/src/main/AndroidManifest.xml:40:13-37
 62            android:foregroundServiceType="dataSync" />
-62-->/home/testuser/pierre-stats-dashboard/app/src/main/AndroidManifest.xml:39:13-53
+62-->/home/testuser/Downloads/pierre-esp32-flasher-stats/app/src/main/AndroidManifest.xml:39:13-53
 63
 64        <provider
 65            android:name="androidx.core.content.FileProvider"
-65-->/home/testuser/pierre-stats-dashboard/app/src/main/AndroidManifest.xml:43:13-62
+65-->/home/testuser/Downloads/pierre-esp32-flasher-stats/app/src/main/AndroidManifest.xml:43:13-62
 66            android:authorities="com.smartpierre.espflasher.fileprovider"
-66-->/home/testuser/pierre-stats-dashboard/app/src/main/AndroidManifest.xml:44:13-64
+66-->/home/testuser/Downloads/pierre-esp32-flasher-stats/app/src/main/AndroidManifest.xml:44:13-64
 67            android:exported="false"
-67-->/home/testuser/pierre-stats-dashboard/app/src/main/AndroidManifest.xml:45:13-37
+67-->/home/testuser/Downloads/pierre-esp32-flasher-stats/app/src/main/AndroidManifest.xml:45:13-37
 68            android:grantUriPermissions="true" >
-68-->/home/testuser/pierre-stats-dashboard/app/src/main/AndroidManifest.xml:46:13-47
+68-->/home/testuser/Downloads/pierre-esp32-flasher-stats/app/src/main/AndroidManifest.xml:46:13-47
 69            <meta-data
-69-->/home/testuser/pierre-stats-dashboard/app/src/main/AndroidManifest.xml:47:13-49:54
+69-->/home/testuser/Downloads/pierre-esp32-flasher-stats/app/src/main/AndroidManifest.xml:47:13-49:54
 70                android:name="android.support.FILE_PROVIDER_PATHS"
-70-->/home/testuser/pierre-stats-dashboard/app/src/main/AndroidManifest.xml:48:17-67
+70-->/home/testuser/Downloads/pierre-esp32-flasher-stats/app/src/main/AndroidManifest.xml:48:17-67
 71                android:resource="@xml/file_paths" />
-71-->/home/testuser/pierre-stats-dashboard/app/src/main/AndroidManifest.xml:49:17-51
+71-->/home/testuser/Downloads/pierre-esp32-flasher-stats/app/src/main/AndroidManifest.xml:49:17-51
 72        </provider>
 73
 74        <activity
