@@ -1169,7 +1169,8 @@
                     password: PASSWORD,
                     clientId: `pierre-monitor-${Math.random().toString(16).substr(2, 8)}`,
                     keepalive: 30,
-                    clean: true
+                    clean: true,  // Use clean session
+                    reconnectPeriod: 1000
                 });
 
                 client.on('connect', () => {
@@ -1182,6 +1183,28 @@
                             console.error('❌ Subscription error:', err);
                         } else {
                             console.log('📡 Subscribed to pierre/#');
+
+                            // IMPORTANT: Force request the retained message by resubscribing to counter topic
+                            setTimeout(() => {
+                                console.log('🔄 Requesting retained counter...');
+                                client.subscribe(COUNTER_TOPIC, {qos: 2}, (err) => {
+                                    if (!err) {
+                                        console.log('📥 Subscribed to counter topic for retained message');
+
+                                        // If no retained message received within 3 seconds, initialize with empty counter
+                                        setTimeout(() => {
+                                            if (flashCounter.totalFlashes === 0 && !isUpdatingCounter) {
+                                                console.log('⚠️ No retained message received, checking if we need to initialize...');
+                                                // Don't overwrite if we already have data
+                                                if (flashCounter.totalFlashes === 0) {
+                                                    console.log('📝 Initializing empty counter in cloud...');
+                                                    saveFlashCounter();
+                                                }
+                                            }
+                                        }, 3000);
+                                    }
+                                });
+                            }, 500);
                         }
                     });
                 });
