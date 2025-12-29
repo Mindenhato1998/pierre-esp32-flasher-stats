@@ -388,7 +388,7 @@
         const chartData = [];
         let deviceChart = null;
 
-        // Flash Counter data
+        // Flash Counter data - CENTRALIZED in HiveMQ Cloud
         let flashCounter = {
             totalFlashes: 0,
             devices: {},  // {deviceId: {name, count, lastSeen}}
@@ -397,42 +397,42 @@
             todayDate: new Date().toDateString()
         };
 
-        // Load flash counter from localStorage
+        let isUpdatingCounter = false;  // Prevent race conditions
+        const COUNTER_TOPIC = 'pierre/global/flash_counter';
+
+        // Load flash counter from HiveMQ retained message
         function loadFlashCounter() {
-            const saved = localStorage.getItem('pierreFlashCounter');
-            if (saved) {
-                try {
-                    const data = JSON.parse(saved);
-                    flashCounter.totalFlashes = data.totalFlashes || 0;
-                    flashCounter.devices = data.devices || {};
-                    flashCounter.sessions = new Set(data.sessions || []);
-
-                    // Check if it's a new day
-                    const today = new Date().toDateString();
-                    if (data.todayDate === today) {
-                        flashCounter.todayFlashes = data.todayFlashes || 0;
-                    } else {
-                        flashCounter.todayFlashes = 0;
-                    }
-                    flashCounter.todayDate = today;
-
-                    console.log(`📊 Loaded flash counter: ${flashCounter.totalFlashes} total flashes`);
-                } catch (e) {
-                    console.error('Failed to load flash counter:', e);
-                }
-            }
+            // Will be loaded when we subscribe to the counter topic
+            console.log('📊 Flash counter will load from HiveMQ cloud...');
         }
 
-        // Save flash counter to localStorage
+        // Save flash counter to HiveMQ as retained message
         function saveFlashCounter() {
+            if (!client || !client.connected || isUpdatingCounter) {
+                console.log('⏳ Waiting for connection...');
+                return;
+            }
+
             const data = {
                 totalFlashes: flashCounter.totalFlashes,
                 devices: flashCounter.devices,
-                sessions: Array.from(flashCounter.sessions),
+                sessions: Array.from(flashCounter.sessions).slice(-1000), // Keep last 1000 sessions
                 todayFlashes: flashCounter.todayFlashes,
-                todayDate: flashCounter.todayDate
+                todayDate: flashCounter.todayDate,
+                lastUpdate: new Date().toISOString()
             };
-            localStorage.setItem('pierreFlashCounter', JSON.stringify(data));
+
+            // Publish as retained message so all clients see the same count
+            client.publish(COUNTER_TOPIC, JSON.stringify(data), {
+                retain: true,
+                qos: 1
+            }, (err) => {
+                if (err) {
+                    console.error('❌ Failed to save counter:', err);
+                } else {
+                    console.log('☁️ Counter saved to cloud');
+                }
+            });
         }
 
         // Update flash counter UI
@@ -677,6 +677,34 @@
             const parts = topic.split('/');
             if (parts.length < 3 || parts[0] !== 'pierre') return;
 
+            // Handle global flash counter topic
+            if (topic === COUNTER_TOPIC) {
+                try {
+                    const data = JSON.parse(message);
+                    flashCounter.totalFlashes = data.totalFlashes || 0;
+                    flashCounter.devices = data.devices || {};
+                    flashCounter.sessions = new Set(data.sessions || []);
+
+                    // Check if it's a new day
+                    const today = new Date().toDateString();
+                    if (data.todayDate === today) {
+                        flashCounter.todayFlashes = data.todayFlashes || 0;
+                    } else {
+                        // It's a new day, reset today's count
+                        flashCounter.todayFlashes = 0;
+                        flashCounter.todayDate = today;
+                        // Save the reset
+                        setTimeout(() => saveFlashCounter(), 1000);
+                    }
+
+                    console.log(`☁️ Loaded counter from cloud: ${flashCounter.totalFlashes} total flashes`);
+                    updateFlashCounterUI();
+                } catch (e) {
+                    console.error('Failed to parse counter data:', e);
+                }
+                return;
+            }
+
             // Handle pierre/serial/DEVICE_ID/SESSION_ID/status or /info messages
             if (parts[1] === 'serial' && parts.length >= 5) {
                 const deviceId = parts[2];
@@ -687,7 +715,10 @@
 
                 // Check if this is a new flash session
                 const sessionKey = `${deviceId}_${sessionId}`;
-                if (!flashCounter.sessions.has(sessionKey)) {
+                if (!flashCounter.sessions.has(sessionKey) && !isUpdatingCounter) {
+                    // Set flag to prevent race conditions
+                    isUpdatingCounter = true;
+
                     flashCounter.sessions.add(sessionKey);
                     flashCounter.totalFlashes++;
 
@@ -726,8 +757,7 @@
 
                     console.log(`🔥 Flash #${flashCounter.totalFlashes} detected! Device: ${deviceName}`);
 
-                    // Save and update UI
-                    saveFlashCounter();
+                    // Update UI immediately
                     updateFlashCounterUI();
 
                     // Animate the counter
@@ -736,6 +766,12 @@
                     setTimeout(() => {
                         counterElem.style.transform = 'scale(1)';
                     }, 300);
+
+                    // Save to cloud and reset flag
+                    saveFlashCounter();
+                    setTimeout(() => {
+                        isUpdatingCounter = false;
+                    }, 2000); // Wait 2 seconds before allowing next update
                 }
 
                 // Ensure device exists in map
@@ -983,8 +1019,7 @@
             // Add initial data point
             updateChart();
 
-            // Initialize flash counter
-            loadFlashCounter();
+            // Initialize flash counter UI (data will load from cloud when connected)
             updateFlashCounterUI();
 
             // Setup reset button
