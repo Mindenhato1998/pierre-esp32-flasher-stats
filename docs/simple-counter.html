@@ -1,0 +1,263 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Pierre ESP32 Flash Counter - Simple Cloud</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: #0a0a0a;
+            color: #ffffff;
+            min-height: 100vh;
+            padding: 2rem;
+        }
+
+        .container {
+            max-width: 600px;
+            margin: 0 auto;
+        }
+
+        .header {
+            text-align: center;
+            margin-bottom: 3rem;
+            padding-bottom: 2rem;
+            border-bottom: 2px solid #333;
+        }
+
+        .header h1 {
+            font-size: 2rem;
+            font-weight: 700;
+            margin-bottom: 0.5rem;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            background-clip: text;
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .counter-section {
+            background: #111;
+            border-radius: 12px;
+            padding: 2rem;
+            border: 1px solid #333;
+            text-align: center;
+        }
+
+        .counter-number {
+            font-size: 4rem;
+            font-weight: bold;
+            color: #00ff88;
+            margin: 1rem 0;
+            transition: all 0.3s ease;
+        }
+
+        .info-box {
+            background: rgba(0, 123, 255, 0.1);
+            border: 1px solid rgba(0, 123, 255, 0.3);
+            border-radius: 8px;
+            padding: 1rem;
+            margin-top: 2rem;
+            text-align: center;
+            font-size: 0.9rem;
+            color: #4da3ff;
+        }
+
+        .last-update {
+            text-align: center;
+            color: #666;
+            font-size: 0.8rem;
+            margin-top: 1rem;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>Pierre ESP32 Flash Counter</h1>
+            <p style="color: #888;">☁️ JSONBin.io Storage - No Setup Required!</p>
+        </div>
+
+        <div class="counter-section">
+            <h2 style="margin-bottom: 1rem;">🔥 Global Flash Counter</h2>
+            <div class="counter-number" id="totalFlashes">0</div>
+            <p style="color: #888;">Total ESP32 devices flashed worldwide</p>
+        </div>
+
+        <div class="last-update" id="lastUpdate"></div>
+
+        <div class="info-box">
+            💡 This counter uses JSONBin.io free tier:<br>
+            • 10,000 requests/month<br>
+            • Data persists forever<br>
+            • No local setup needed!
+        </div>
+    </div>
+
+    <script src="https://unpkg.com/mqtt/dist/mqtt.min.js"></script>
+    <script>
+        // JSONBin.io Configuration
+        const JSONBIN_BIN_ID = '67722e63ad19ca34f8d4c3e8'; // Public bin ID
+        const JSONBIN_URL = `https://api.jsonbin.io/v3/b/${JSONBIN_BIN_ID}`;
+
+        // MQTT Configuration
+        const MQTT_HOST = 'wss://0c1bf62a21e94682adf340b8a2d3fe04.s1.eu.hivemq.cloud:8884/mqtt';
+        const MQTT_USER = 'pierreflasher';
+        const MQTT_PASS = 'Pierre2k23';
+
+        let mqttClient = null;
+        let totalFlashes = 0;
+        let lastUpdate = '';
+
+        // Load counter from JSONBin
+        async function loadCounter() {
+            try {
+                const response = await fetch(JSONBIN_URL + '/latest');
+                if (response.ok) {
+                    const data = await response.json();
+                    if (data.record) {
+                        totalFlashes = data.record.totalFlashes || 0;
+                        lastUpdate = data.record.lastUpdate || '';
+                        updateUI();
+                        console.log('✅ Loaded from JSONBin:', totalFlashes);
+                    }
+                }
+            } catch (error) {
+                console.error('Error loading counter:', error);
+            }
+        }
+
+        // Save counter to JSONBin (with rate limiting)
+        let saveTimeout = null;
+        function saveCounter() {
+            // Debounce saves to avoid hitting rate limits
+            clearTimeout(saveTimeout);
+            saveTimeout = setTimeout(async () => {
+                try {
+                    const response = await fetch(JSONBIN_URL, {
+                        method: 'PUT',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'X-Master-Key': '$2a$10$uHJeqU8VKdGvK3RP1JRedO5lMpO2Q5K8qHj8KqFGH1iYrFz3vSg2y'
+                        },
+                        body: JSON.stringify({
+                            totalFlashes: totalFlashes,
+                            lastUpdate: new Date().toISOString()
+                        })
+                    });
+
+                    if (response.ok) {
+                        console.log('✅ Saved to JSONBin:', totalFlashes);
+                    }
+                } catch (error) {
+                    console.error('Error saving counter:', error);
+                    // Fall back to MQTT retained message
+                    if (mqttClient && mqttClient.connected) {
+                        mqttClient.publish('pierre/counter/backup', JSON.stringify({
+                            totalFlashes: totalFlashes,
+                            lastUpdate: new Date().toISOString()
+                        }), { retain: true, qos: 1 });
+                    }
+                }
+            }, 5000); // Wait 5 seconds before saving
+        }
+
+        // Connect to MQTT
+        function connectMQTT() {
+            mqttClient = mqtt.connect(MQTT_HOST, {
+                username: MQTT_USER,
+                password: MQTT_PASS,
+                clientId: 'jsonbin_counter_' + Math.random().toString(36).substring(7),
+                clean: false,
+                reconnectPeriod: 1000
+            });
+
+            mqttClient.on('connect', () => {
+                console.log('✅ Connected to HiveMQ');
+
+                // Subscribe to flash events
+                mqttClient.subscribe('pierre/flash/events/+', {qos: 1});
+
+                // Subscribe to backup counter
+                mqttClient.subscribe('pierre/counter/backup', {qos: 1});
+            });
+
+            mqttClient.on('message', (topic, message) => {
+                if (topic.startsWith('pierre/flash/events/')) {
+                    try {
+                        const event = JSON.parse(message.toString());
+                        console.log('🎯 Flash event from:', event.deviceName);
+
+                        // Increment counter
+                        totalFlashes++;
+                        lastUpdate = new Date().toISOString();
+
+                        // Update UI
+                        updateUI();
+                        animateCounter();
+
+                        // Save to JSONBin (debounced)
+                        saveCounter();
+
+                    } catch (e) {
+                        console.error('Error processing event:', e);
+                    }
+                }
+
+                // Backup from MQTT if JSONBin fails
+                if (topic === 'pierre/counter/backup') {
+                    try {
+                        const data = JSON.parse(message.toString());
+                        if (data.totalFlashes > totalFlashes) {
+                            totalFlashes = data.totalFlashes;
+                            lastUpdate = data.lastUpdate;
+                            updateUI();
+                            console.log('📡 Restored from MQTT backup:', totalFlashes);
+                        }
+                    } catch (e) {
+                        console.error('Error parsing backup:', e);
+                    }
+                }
+            });
+        }
+
+        // Update UI
+        function updateUI() {
+            document.getElementById('totalFlashes').textContent = totalFlashes;
+            if (lastUpdate) {
+                const date = new Date(lastUpdate);
+                document.getElementById('lastUpdate').textContent =
+                    `Last update: ${date.toLocaleString()}`;
+            }
+        }
+
+        // Animate counter
+        function animateCounter() {
+            const counter = document.getElementById('totalFlashes');
+            counter.style.transform = 'scale(1.2)';
+            counter.style.color = '#ffff00';
+            setTimeout(() => {
+                counter.style.transform = 'scale(1)';
+                counter.style.color = '#00ff88';
+            }, 300);
+        }
+
+        // Initialize
+        document.addEventListener('DOMContentLoaded', async () => {
+            // Load initial counter
+            await loadCounter();
+
+            // Connect to MQTT
+            connectMQTT();
+
+            // Refresh from JSONBin every minute
+            setInterval(loadCounter, 60000);
+        });
+    </script>
+</body>
+</html>

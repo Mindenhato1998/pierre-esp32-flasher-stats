@@ -1,0 +1,462 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Pierre ESP32 Flash Counter - Pure Cloud</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            background: #0a0a0a;
+            color: #ffffff;
+            min-height: 100vh;
+            padding: 2rem;
+        }
+
+        .container {
+            max-width: 600px;
+            margin: 0 auto;
+        }
+
+        .header {
+            text-align: center;
+            margin-bottom: 3rem;
+            padding-bottom: 2rem;
+            border-bottom: 2px solid #333;
+        }
+
+        .header h1 {
+            font-size: 2rem;
+            font-weight: 700;
+            margin-bottom: 0.5rem;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            background-clip: text;
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .status {
+            text-align: center;
+            margin-bottom: 2rem;
+            padding: 1rem;
+            background: #1a1a1a;
+            border-radius: 8px;
+            border: 1px solid #333;
+        }
+
+        .status.connected {
+            border-color: #00ff88;
+            background: rgba(0, 255, 136, 0.1);
+        }
+
+        .counter-section {
+            background: #111;
+            border-radius: 12px;
+            padding: 2rem;
+            border: 1px solid #333;
+            text-align: center;
+        }
+
+        .counter-number {
+            font-size: 4rem;
+            font-weight: bold;
+            color: #00ff88;
+            margin: 1rem 0;
+            transition: all 0.3s ease;
+        }
+
+        .counter-label {
+            color: #888;
+            margin-bottom: 2rem;
+        }
+
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            gap: 1rem;
+            margin-top: 2rem;
+        }
+
+        .stat-item {
+            background: #1a1a1a;
+            padding: 1rem;
+            border-radius: 8px;
+            border: 1px solid #2a2a2a;
+        }
+
+        .stat-label {
+            font-size: 0.8rem;
+            color: #666;
+            margin-bottom: 0.5rem;
+        }
+
+        .stat-value {
+            font-size: 1.5rem;
+            font-weight: bold;
+            color: #fff;
+        }
+
+        .events-section {
+            background: #111;
+            border-radius: 12px;
+            padding: 2rem;
+            border: 1px solid #333;
+            margin-top: 2rem;
+        }
+
+        .events-title {
+            font-size: 1.2rem;
+            margin-bottom: 1rem;
+        }
+
+        .event-item {
+            background: #1a1a1a;
+            padding: 0.75rem;
+            border-radius: 6px;
+            margin-bottom: 0.5rem;
+            border: 1px solid #2a2a2a;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .event-device {
+            font-weight: 600;
+        }
+
+        .event-time {
+            font-size: 0.8rem;
+            color: #666;
+        }
+
+        .no-events {
+            text-align: center;
+            color: #666;
+            font-style: italic;
+            padding: 1rem;
+        }
+
+        .info-box {
+            background: rgba(0, 123, 255, 0.1);
+            border: 1px solid rgba(0, 123, 255, 0.3);
+            border-radius: 8px;
+            padding: 1rem;
+            margin-top: 2rem;
+            text-align: center;
+            font-size: 0.9rem;
+            color: #4da3ff;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>Pierre ESP32 Flash Counter</h1>
+            <p style="color: #888;">☁️ 100% Cloud Based - No Local Scripts</p>
+        </div>
+
+        <div class="status" id="status">
+            <span id="statusText">Loading counter...</span>
+        </div>
+
+        <div class="counter-section">
+            <h2 style="margin-bottom: 1rem;">🔥 Global Flash Counter</h2>
+            <div class="counter-number" id="totalFlashes">0</div>
+            <p class="counter-label">Total ESP32 devices flashed worldwide</p>
+
+            <div class="stats-grid">
+                <div class="stat-item">
+                    <div class="stat-label">Today's Flashes</div>
+                    <div class="stat-value" id="todayFlashes">0</div>
+                </div>
+                <div class="stat-item">
+                    <div class="stat-label">Unique Devices</div>
+                    <div class="stat-value" id="uniqueDevices">0</div>
+                </div>
+            </div>
+        </div>
+
+        <div class="events-section">
+            <h3 class="events-title">📋 Recent Flash Events</h3>
+            <div id="eventsList">
+                <div class="no-events">Loading events...</div>
+            </div>
+        </div>
+
+        <div class="info-box">
+            💡 This counter uses a hybrid approach:<br>
+            • Primary: Firebase Realtime Database (free tier)<br>
+            • Backup: HiveMQ retained messages<br>
+            • No local scripts required!
+        </div>
+    </div>
+
+    <script src="https://unpkg.com/mqtt/dist/mqtt.min.js"></script>
+    <script>
+        // Configuration
+        const MQTT_HOST = 'wss://0c1bf62a21e94682adf340b8a2d3fe04.s1.eu.hivemq.cloud:8884/mqtt';
+        const MQTT_USER = 'pierreflasher';
+        const MQTT_PASS = 'Pierre2k23';
+
+        // Firebase Configuration (Free Public Database)
+        const FIREBASE_URL = 'https://pierre-flash-counter-default-rtdb.firebaseio.com';
+        const COUNTER_PATH = '/counter.json';
+
+        // State
+        let mqttClient = null;
+        let counterData = {
+            totalFlashes: 0,
+            todayFlashes: 0,
+            todayDate: new Date().toDateString(),
+            devices: {},
+            recentEvents: []
+        };
+        let isUpdating = false;
+
+        // Load counter from Firebase
+        async function loadCounterFromFirebase() {
+            try {
+                const response = await fetch(FIREBASE_URL + COUNTER_PATH);
+                if (response.ok) {
+                    const data = await response.json();
+                    if (data) {
+                        console.log('☁️ Loaded from Firebase:', data);
+                        counterData = data;
+
+                        // Check if new day
+                        const today = new Date().toDateString();
+                        if (counterData.todayDate !== today) {
+                            counterData.todayDate = today;
+                            counterData.todayFlashes = 0;
+                        }
+
+                        updateUI();
+                        return true;
+                    }
+                }
+            } catch (error) {
+                console.error('Firebase load error:', error);
+            }
+            return false;
+        }
+
+        // Save counter to Firebase
+        async function saveCounterToFirebase() {
+            try {
+                const response = await fetch(FIREBASE_URL + COUNTER_PATH, {
+                    method: 'PUT',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(counterData)
+                });
+
+                if (response.ok) {
+                    console.log('☁️ Saved to Firebase');
+                    return true;
+                }
+            } catch (error) {
+                console.error('Firebase save error:', error);
+            }
+            return false;
+        }
+
+        // Connect to MQTT
+        function connectMQTT() {
+            console.log('🔌 Connecting to HiveMQ...');
+
+            mqttClient = mqtt.connect(MQTT_HOST, {
+                username: MQTT_USER,
+                password: MQTT_PASS,
+                clientId: 'counter_' + Math.random().toString(36).substring(7),
+                clean: false,
+                reconnectPeriod: 1000
+            });
+
+            mqttClient.on('connect', () => {
+                console.log('✅ Connected to HiveMQ');
+                updateStatus(true);
+
+                // Subscribe to flash events
+                mqttClient.subscribe('pierre/flash/events/+', {qos: 1});
+
+                // Also subscribe to counter state for redundancy
+                mqttClient.subscribe('pierre/flashcounter/state', {qos: 1});
+            });
+
+            mqttClient.on('message', (topic, message) => {
+                handleMessage(topic, message.toString());
+            });
+
+            mqttClient.on('error', (error) => {
+                console.error('MQTT error:', error);
+                updateStatus(false);
+            });
+        }
+
+        // Handle messages
+        function handleMessage(topic, message) {
+            // Handle flash events
+            if (topic.startsWith('pierre/flash/events/')) {
+                if (!isUpdating) {
+                    isUpdating = true;
+
+                    try {
+                        const eventData = JSON.parse(message);
+                        console.log('🎯 Flash event:', eventData);
+
+                        // Update counters
+                        counterData.totalFlashes++;
+
+                        // Check for new day
+                        const today = new Date().toDateString();
+                        if (counterData.todayDate !== today) {
+                            counterData.todayDate = today;
+                            counterData.todayFlashes = 1;
+                        } else {
+                            counterData.todayFlashes++;
+                        }
+
+                        // Update device count
+                        const deviceId = eventData.deviceId || 'unknown';
+                        if (!counterData.devices[deviceId]) {
+                            counterData.devices[deviceId] = {
+                                name: eventData.deviceName || 'Unknown Device',
+                                count: 0
+                            };
+                        }
+                        counterData.devices[deviceId].count++;
+
+                        // Add to recent events
+                        counterData.recentEvents.unshift({
+                            deviceName: eventData.deviceName || 'Unknown Device',
+                            firmwareType: eventData.firmwareType || 'production',
+                            timestamp: eventData.timestamp || new Date().toISOString()
+                        });
+                        counterData.recentEvents = counterData.recentEvents.slice(0, 10);
+
+                        // Update timestamp
+                        counterData.lastUpdate = new Date().toISOString();
+
+                        // Save to Firebase
+                        saveCounterToFirebase();
+
+                        // Also save to MQTT retained
+                        if (mqttClient && mqttClient.connected) {
+                            mqttClient.publish('pierre/flashcounter/state', JSON.stringify(counterData), {
+                                retain: true,
+                                qos: 1
+                            });
+                        }
+
+                        // Update UI
+                        updateUI();
+                        animateCounter();
+
+                    } catch (e) {
+                        console.error('Error processing event:', e);
+                    } finally {
+                        setTimeout(() => {
+                            isUpdating = false;
+                        }, 100);
+                    }
+                }
+            }
+
+            // Handle counter state (backup from MQTT)
+            if (topic === 'pierre/flashcounter/state') {
+                try {
+                    const data = JSON.parse(message);
+
+                    // Only use if Firebase is not available or data is newer
+                    if (!counterData.lastUpdate ||
+                        (data.lastUpdate && new Date(data.lastUpdate) > new Date(counterData.lastUpdate))) {
+                        console.log('📡 Using MQTT backup data');
+                        counterData = data;
+                        updateUI();
+                    }
+                } catch (e) {
+                    console.error('Error parsing state:', e);
+                }
+            }
+        }
+
+        // Update UI
+        function updateUI() {
+            document.getElementById('totalFlashes').textContent = counterData.totalFlashes || 0;
+            document.getElementById('todayFlashes').textContent = counterData.todayFlashes || 0;
+            document.getElementById('uniqueDevices').textContent = Object.keys(counterData.devices || {}).length;
+
+            // Update events list
+            const eventsList = document.getElementById('eventsList');
+            if (counterData.recentEvents && counterData.recentEvents.length > 0) {
+                eventsList.innerHTML = counterData.recentEvents.map(event => {
+                    const time = new Date(event.timestamp).toLocaleTimeString();
+                    return `
+                        <div class="event-item">
+                            <div>
+                                <div class="event-device">${event.deviceName}</div>
+                                <div class="event-time">${event.firmwareType}</div>
+                            </div>
+                            <div class="event-time">${time}</div>
+                        </div>
+                    `;
+                }).join('');
+            } else {
+                eventsList.innerHTML = '<div class="no-events">No flash events yet</div>';
+            }
+        }
+
+        // Animate counter
+        function animateCounter() {
+            const counter = document.getElementById('totalFlashes');
+            counter.style.transform = 'scale(1.2)';
+            counter.style.color = '#ffff00';
+            setTimeout(() => {
+                counter.style.transform = 'scale(1)';
+                counter.style.color = '#00ff88';
+            }, 300);
+        }
+
+        // Update status
+        function updateStatus(connected) {
+            const status = document.getElementById('status');
+            const statusText = document.getElementById('statusText');
+
+            if (connected) {
+                status.className = 'status connected';
+                statusText.textContent = '✅ Connected - Counter synced across all devices';
+            } else {
+                status.className = 'status';
+                statusText.textContent = '🔄 Reconnecting...';
+            }
+        }
+
+        // Initialize
+        document.addEventListener('DOMContentLoaded', async () => {
+            // Try to load from Firebase first
+            const loaded = await loadCounterFromFirebase();
+
+            if (!loaded) {
+                console.log('No Firebase data, initializing new counter');
+                // Save initial state
+                await saveCounterToFirebase();
+            }
+
+            // Connect to MQTT for live updates
+            connectMQTT();
+
+            // Periodic sync with Firebase (every 30 seconds)
+            setInterval(() => {
+                loadCounterFromFirebase();
+            }, 30000);
+        });
+    </script>
+</body>
+</html>
