@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Pierre ESP32 Flash Counter - GitHub Storage</title>
+    <title>Pierre ESP32 Flash Counter - Pure Cloud</title>
     <style>
         * {
             margin: 0;
@@ -152,24 +152,17 @@
             font-size: 0.9rem;
             color: #4da3ff;
         }
-
-        .update-info {
-            text-align: center;
-            margin-top: 1rem;
-            font-size: 0.8rem;
-            color: #666;
-        }
     </style>
 </head>
 <body>
     <div class="container">
         <div class="header">
             <h1>Pierre ESP32 Flash Counter</h1>
-            <p style="color: #888;">🐙 GitHub Pages Storage - Permanent & Free</p>
+            <p style="color: #888;">☁️ 100% Cloud Based - No Local Scripts</p>
         </div>
 
         <div class="status" id="status">
-            <span id="statusText">Loading data from GitHub...</span>
+            <span id="statusText">Loading counter...</span>
         </div>
 
         <div class="counter-section">
@@ -192,34 +185,28 @@
         <div class="events-section">
             <h3 class="events-title">📋 Recent Flash Events</h3>
             <div id="eventsList">
-                <div class="no-events">No flash events yet</div>
+                <div class="no-events">Loading events...</div>
             </div>
         </div>
 
         <div class="info-box">
-            💡 This counter is stored on GitHub Pages. Data persists forever!<br>
-            Updates are handled via GitHub Actions triggered by MQTT events.
+            💡 This counter uses a hybrid approach:<br>
+            • Primary: Firebase Realtime Database (free tier)<br>
+            • Backup: HiveMQ retained messages<br>
+            • No local scripts required!
         </div>
-
-        <div class="update-info" id="updateInfo"></div>
     </div>
 
     <script src="https://unpkg.com/mqtt/dist/mqtt.min.js"></script>
     <script>
-        // GitHub Pages data URL - UPDATE THIS WITH YOUR GITHUB USERNAME AND REPO
-        const GITHUB_USER = 'Mindenhato1998';
-        const GITHUB_REPO = 'pierre-esp32-flasher-stats';
-        const DATA_URL = `https://${GITHUB_USER}.github.io/${GITHUB_REPO}/counter-data.json`;
-
-        // For local testing
-        const LOCAL_DATA_URL = './counter-data.json';
-        const IS_LOCAL = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
-
-        // MQTT Configuration for live updates
+        // Configuration
         const MQTT_HOST = 'wss://0c1bf62a21e94682adf340b8a2d3fe04.s1.eu.hivemq.cloud:8884/mqtt';
         const MQTT_USER = 'pierreflasher';
         const MQTT_PASS = 'Pierre2k23';
-        const EVENT_TOPIC = 'pierre/flash/events/+';
+
+        // Firebase Configuration (Free Public Database)
+        const FIREBASE_URL = 'https://pierre-flash-counter-default-rtdb.firebaseio.com';
+        const COUNTER_PATH = '/counter.json';
 
         // State
         let mqttClient = null;
@@ -230,122 +217,172 @@
             devices: {},
             recentEvents: []
         };
+        let isUpdating = false;
 
-        // Load counter data from GitHub
-        async function loadCounterData() {
-            const url = IS_LOCAL ? LOCAL_DATA_URL : DATA_URL;
-            console.log(`📂 Loading counter from: ${url}`);
-
+        // Load counter from Firebase
+        async function loadCounterFromFirebase() {
             try {
-                // Add timestamp to bypass cache
-                const response = await fetch(url + '?t=' + Date.now());
-
+                const response = await fetch(FIREBASE_URL + COUNTER_PATH);
                 if (response.ok) {
                     const data = await response.json();
-                    console.log('✅ Loaded counter from GitHub:', data);
+                    if (data) {
+                        console.log('☁️ Loaded from Firebase:', data);
+                        counterData = data;
 
-                    counterData = data;
+                        // Check if new day
+                        const today = new Date().toDateString();
+                        if (counterData.todayDate !== today) {
+                            counterData.todayDate = today;
+                            counterData.todayFlashes = 0;
+                        }
 
-                    // Check if it's a new day
-                    const today = new Date().toDateString();
-                    if (counterData.todayDate !== today) {
-                        counterData.todayDate = today;
-                        counterData.todayFlashes = 0;
+                        updateUI();
+                        return true;
                     }
-
-                    updateUI();
-                    updateStatus(true, 'Connected to GitHub & HiveMQ');
-                } else {
-                    console.error('Failed to load from GitHub:', response.status);
-                    updateStatus(false, 'Failed to load data from GitHub');
                 }
             } catch (error) {
-                console.error('Error loading counter:', error);
-                updateStatus(false, 'Error loading data');
-
-                // Initialize with empty data if load fails
-                updateUI();
+                console.error('Firebase load error:', error);
             }
+            return false;
         }
 
-        // Connect to MQTT for live updates
+        // Save counter to Firebase
+        async function saveCounterToFirebase() {
+            try {
+                const response = await fetch(FIREBASE_URL + COUNTER_PATH, {
+                    method: 'PUT',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(counterData)
+                });
+
+                if (response.ok) {
+                    console.log('☁️ Saved to Firebase');
+                    return true;
+                }
+            } catch (error) {
+                console.error('Firebase save error:', error);
+            }
+            return false;
+        }
+
+        // Connect to MQTT
         function connectMQTT() {
-            console.log('🔌 Connecting to HiveMQ for live updates...');
+            console.log('🔌 Connecting to HiveMQ...');
 
             mqttClient = mqtt.connect(MQTT_HOST, {
                 username: MQTT_USER,
                 password: MQTT_PASS,
-                clientId: 'github_dashboard_' + Math.random().toString(36).substring(7),
-                clean: true,
+                clientId: 'counter_' + Math.random().toString(36).substring(7),
+                clean: false,
                 reconnectPeriod: 1000
             });
 
             mqttClient.on('connect', () => {
-                console.log('✅ Connected to HiveMQ for live updates');
+                console.log('✅ Connected to HiveMQ');
+                updateStatus(true);
 
                 // Subscribe to flash events
-                mqttClient.subscribe(EVENT_TOPIC, {qos: 1}, (err) => {
-                    if (!err) {
-                        console.log(`📡 Subscribed to ${EVENT_TOPIC}`);
-                    }
-                });
+                mqttClient.subscribe('pierre/flash/events/+', {qos: 1});
+
+                // Also subscribe to counter state for redundancy
+                mqttClient.subscribe('pierre/flashcounter/state', {qos: 1});
             });
 
             mqttClient.on('message', (topic, message) => {
-                handleFlashEvent(topic, message.toString());
+                handleMessage(topic, message.toString());
             });
 
             mqttClient.on('error', (error) => {
-                console.error('❌ MQTT error:', error);
+                console.error('MQTT error:', error);
+                updateStatus(false);
             });
         }
 
-        // Handle incoming flash events
-        function handleFlashEvent(topic, message) {
+        // Handle messages
+        function handleMessage(topic, message) {
+            // Handle flash events
             if (topic.startsWith('pierre/flash/events/')) {
+                if (!isUpdating) {
+                    isUpdating = true;
+
+                    try {
+                        const eventData = JSON.parse(message);
+                        console.log('🎯 Flash event:', eventData);
+
+                        // Update counters
+                        counterData.totalFlashes++;
+
+                        // Check for new day
+                        const today = new Date().toDateString();
+                        if (counterData.todayDate !== today) {
+                            counterData.todayDate = today;
+                            counterData.todayFlashes = 1;
+                        } else {
+                            counterData.todayFlashes++;
+                        }
+
+                        // Update device count
+                        const deviceId = eventData.deviceId || 'unknown';
+                        if (!counterData.devices[deviceId]) {
+                            counterData.devices[deviceId] = {
+                                name: eventData.deviceName || 'Unknown Device',
+                                count: 0
+                            };
+                        }
+                        counterData.devices[deviceId].count++;
+
+                        // Add to recent events
+                        counterData.recentEvents.unshift({
+                            deviceName: eventData.deviceName || 'Unknown Device',
+                            firmwareType: eventData.firmwareType || 'production',
+                            timestamp: eventData.timestamp || new Date().toISOString()
+                        });
+                        counterData.recentEvents = counterData.recentEvents.slice(0, 10);
+
+                        // Update timestamp
+                        counterData.lastUpdate = new Date().toISOString();
+
+                        // Save to Firebase
+                        saveCounterToFirebase();
+
+                        // Also save to MQTT retained
+                        if (mqttClient && mqttClient.connected) {
+                            mqttClient.publish('pierre/flashcounter/state', JSON.stringify(counterData), {
+                                retain: true,
+                                qos: 1
+                            });
+                        }
+
+                        // Update UI
+                        updateUI();
+                        animateCounter();
+
+                    } catch (e) {
+                        console.error('Error processing event:', e);
+                    } finally {
+                        setTimeout(() => {
+                            isUpdating = false;
+                        }, 100);
+                    }
+                }
+            }
+
+            // Handle counter state (backup from MQTT)
+            if (topic === 'pierre/flashcounter/state') {
                 try {
-                    const eventData = JSON.parse(message);
-                    console.log('🎯 Live flash event:', eventData);
+                    const data = JSON.parse(message);
 
-                    // Update counters locally (GitHub update will happen via Actions)
-                    counterData.totalFlashes++;
-
-                    // Check for new day
-                    const today = new Date().toDateString();
-                    if (counterData.todayDate !== today) {
-                        counterData.todayDate = today;
-                        counterData.todayFlashes = 1;
-                    } else {
-                        counterData.todayFlashes++;
+                    // Only use if Firebase is not available or data is newer
+                    if (!counterData.lastUpdate ||
+                        (data.lastUpdate && new Date(data.lastUpdate) > new Date(counterData.lastUpdate))) {
+                        console.log('📡 Using MQTT backup data');
+                        counterData = data;
+                        updateUI();
                     }
-
-                    // Update device count
-                    const deviceId = eventData.deviceId || 'unknown';
-                    if (!counterData.devices[deviceId]) {
-                        counterData.devices[deviceId] = {
-                            name: eventData.deviceName || 'Unknown Device',
-                            count: 0
-                        };
-                    }
-                    counterData.devices[deviceId].count++;
-
-                    // Add to recent events (keep last 10)
-                    counterData.recentEvents.unshift({
-                        deviceName: eventData.deviceName || 'Unknown Device',
-                        firmwareType: eventData.firmwareType || 'production',
-                        timestamp: eventData.timestamp || new Date().toISOString()
-                    });
-                    counterData.recentEvents = counterData.recentEvents.slice(0, 10);
-
-                    // Update UI immediately
-                    updateUI();
-                    animateCounter();
-
-                    // Note: GitHub will be updated via Actions
-                    showUpdateNote('📤 GitHub update triggered via Actions...');
-
                 } catch (e) {
-                    console.error('Failed to process flash event:', e);
+                    console.error('Error parsing state:', e);
                 }
             }
         }
@@ -374,16 +411,9 @@
             } else {
                 eventsList.innerHTML = '<div class="no-events">No flash events yet</div>';
             }
-
-            // Update last update time
-            if (counterData.lastUpdate) {
-                const updateTime = new Date(counterData.lastUpdate);
-                document.getElementById('updateInfo').textContent =
-                    `Last GitHub update: ${updateTime.toLocaleString()}`;
-            }
         }
 
-        // Animate counter on update
+        // Animate counter
         function animateCounter() {
             const counter = document.getElementById('totalFlashes');
             counter.style.transform = 'scale(1.2)';
@@ -394,50 +424,38 @@
             }, 300);
         }
 
-        // Update connection status
-        function updateStatus(connected, message) {
+        // Update status
+        function updateStatus(connected) {
             const status = document.getElementById('status');
             const statusText = document.getElementById('statusText');
 
             if (connected) {
                 status.className = 'status connected';
-                statusText.textContent = '✅ ' + message;
+                statusText.textContent = '✅ Connected - Counter synced across all devices';
             } else {
                 status.className = 'status';
-                statusText.textContent = '❌ ' + message;
+                statusText.textContent = '🔄 Reconnecting...';
             }
         }
 
-        // Show update note
-        function showUpdateNote(message) {
-            const info = document.getElementById('updateInfo');
-            info.textContent = message;
-            setTimeout(() => {
-                if (counterData.lastUpdate) {
-                    const updateTime = new Date(counterData.lastUpdate);
-                    info.textContent = `Last GitHub update: ${updateTime.toLocaleString()}`;
-                }
-            }, 3000);
-        }
-
-        // Reload data periodically to get GitHub updates
-        function startPeriodicReload() {
-            // Reload every 30 seconds to get GitHub updates
-            setInterval(() => {
-                loadCounterData();
-            }, 30000);
-        }
-
-        // Initialize on load
+        // Initialize
         document.addEventListener('DOMContentLoaded', async () => {
-            // Load initial data from GitHub
-            await loadCounterData();
+            // Try to load from Firebase first
+            const loaded = await loadCounterFromFirebase();
+
+            if (!loaded) {
+                console.log('No Firebase data, initializing new counter');
+                // Save initial state
+                await saveCounterToFirebase();
+            }
 
             // Connect to MQTT for live updates
             connectMQTT();
 
-            // Start periodic reload
-            startPeriodicReload();
+            // Periodic sync with Firebase (every 30 seconds)
+            setInterval(() => {
+                loadCounterFromFirebase();
+            }, 30000);
         });
     </script>
 </body>
