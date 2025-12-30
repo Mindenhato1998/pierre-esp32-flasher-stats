@@ -1,0 +1,21 @@
+{
+  "name": "pierre-flash-counter-bridge",
+  "version": "1.0.0",
+  "description": "MQTT to GitHub Gist bridge for Pierre ESP32 Flash Counter",
+  "main": "mqtt-bridge.js",
+  "scripts": {
+    "start": "node mqtt-bridge.js",
+    "dev": "nodemon mqtt-bridge.js"
+  },
+  "dependencies": {
+    "mqtt": "^5.14.1"
+  },
+  "devDependencies": {
+    "nodemon": "^3.0.2"
+  },
+  "engines": {
+    "node": ">=14.0.0"
+  },
+  "author": "Pierre",
+  "license": "MIT"
+}

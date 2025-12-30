@@ -655,13 +655,23 @@
             // Update device list
             const deviceList = document.getElementById('deviceFlashList');
 
-            // Get all devices and sort by count (descending)
-            const devices = Object.entries(flashCounter.devices)
-                .map(([id, device]) => ({
-                    id: id,
-                    name: device.name || id,
-                    count: device.count
-                }))
+            // Group devices by name and sum their flash counts
+            const devicesByName = {};
+            Object.entries(flashCounter.devices).forEach(([id, device]) => {
+                const name = device.name || id;
+                if (!devicesByName[name]) {
+                    devicesByName[name] = {
+                        name: name,
+                        count: 0,
+                        ids: []
+                    };
+                }
+                devicesByName[name].count += device.count;
+                devicesByName[name].ids.push(id);
+            });
+
+            // Convert to array and sort by count (descending)
+            const devices = Object.values(devicesByName)
                 .sort((a, b) => b.count - a.count);
 
             if (devices.length === 0) {
@@ -683,7 +693,7 @@
                 `;
                 deviceList.appendChild(headerDiv);
 
-                // Add each device
+                // Add each device (now grouped by name)
                 devices.forEach(device => {
                     const deviceDiv = document.createElement('div');
                     deviceDiv.className = 'device-flash-item';

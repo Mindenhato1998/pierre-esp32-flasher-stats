@@ -503,16 +503,22 @@
         // Store recent flash events (keep last 20)
         let recentFlashEvents = [];
 
-        // Use localStorage for immediate persistence and HiveMQ for cross-device sync
-        // Load flash counter from localStorage immediately
-        function loadFlashCounter() {
-            console.log('📊 Loading flash counter...');
+        // Server API URL for persistent storage
+        const API_URL = window.location.hostname === 'localhost'
+            ? 'http://localhost:3000/api/counter'
+            : '/api/counter';
+
+        // Load flash counter from server
+        async function loadFlashCounter() {
+            console.log('📊 Loading flash counter from server...');
 
             try {
-                // First try localStorage for immediate load
-                const localData = localStorage.getItem('pierreFlashCounter');
-                if (localData) {
-                    const data = JSON.parse(localData);
+                // Load from server API
+                const response = await fetch(API_URL + '?t=' + Date.now());
+
+                if (response.ok) {
+                    const data = await response.json();
+
                     flashCounter.totalFlashes = data.totalFlashes || 0;
                     flashCounter.devices = data.devices || {};
                     flashCounter.sessions = new Set(data.sessions || []);
@@ -530,19 +536,24 @@
                         recentFlashEvents = data.recentEvents;
                     }
 
-                    console.log('💾 Loaded from localStorage:', flashCounter.totalFlashes);
+                    console.log('✅ Loaded from server:', flashCounter.totalFlashes);
+                    updateFlashCounterUI();
+                    updateFlashEventsUI();
+                } else {
+                    console.error('Failed to load from server:', response.status);
+                    // Initialize with empty counter
                     updateFlashCounterUI();
                     updateFlashEventsUI();
                 }
             } catch (error) {
-                console.error('Failed to load from localStorage:', error);
+                console.error('Failed to load from server:', error);
+                // Initialize with empty counter
+                updateFlashCounterUI();
+                updateFlashEventsUI();
             }
-
-            // HiveMQ will sync later if available
-            console.log('📡 Will sync with HiveMQ when connected...');
         }
 
-        // Save flash counter to both localStorage AND HiveMQ
+        // Save flash counter - trigger GitHub Actions to update Gist
         function saveFlashCounter() {
             const data = {
                 totalFlashes: flashCounter.totalFlashes,
@@ -554,25 +565,28 @@
                 lastUpdate: new Date().toISOString()
             };
 
-            // ALWAYS save to localStorage first for persistence
-            try {
-                localStorage.setItem('pierreFlashCounter', JSON.stringify(data));
-                console.log('💾 Saved to localStorage');
-            } catch (error) {
-                console.error('Failed to save to localStorage:', error);
-            }
-
-            // Then try HiveMQ for cross-device sync
+            // Send to HiveMQ which will trigger GitHub Actions to update Gist
             if (client && client.connected && !isUpdatingCounter) {
-                // Publish as retained message so all clients see the same count
-                client.publish(COUNTER_TOPIC, JSON.stringify(data), {
-                    retain: true,
+                // Publish to a special topic that GitHub Actions monitors
+                client.publish('pierre/flash/update', JSON.stringify(data), {
                     qos: 2  // Use QoS 2 for guaranteed delivery
                 }, (err) => {
                     if (err) {
-                        console.error('❌ Failed to save to HiveMQ:', err);
+                        console.error('❌ Failed to trigger update:', err);
                     } else {
-                        console.log('☁️ Also saved to HiveMQ cloud');
+                        console.log('📤 Update triggered for GitHub Gist');
+                    }
+                });
+            }
+
+            // Also keep using the retained message for immediate sync
+            if (client && client.connected && !isUpdatingCounter) {
+                client.publish(COUNTER_TOPIC, JSON.stringify(data), {
+                    retain: true,
+                    qos: 2
+                }, (err) => {
+                    if (!err) {
+                        console.log('☁️ Saved to HiveMQ for immediate sync');
                     }
                 });
             }
@@ -903,12 +917,8 @@
                         console.log(`☁️ Synced counter from cloud: ${flashCounter.totalFlashes} total flashes`);
                         updateFlashCounterUI();
 
-                        // Save to localStorage to keep in sync
-                        try {
-                            localStorage.setItem('pierreFlashCounter', JSON.stringify(data));
-                        } catch (error) {
-                            console.error('Failed to update localStorage:', error);
-                        }
+                        // No need for localStorage - server handles persistence
+                        // localStorage removed as requested
                     } else {
                         console.log(`⏭️ Skipping cloud sync - local data is newer (local: ${flashCounter.totalFlashes}, cloud: ${data.totalFlashes})`);
                     }
@@ -1001,8 +1011,8 @@
                             counterElem.style.transform = 'scale(1)';
                         }, 500);
 
-                        // Save to cloud
-                        saveFlashCounter();
+                        // Server automatically saves the data, no need to call saveFlashCounter
+                        // saveFlashCounter();
 
                     } catch (e) {
                         console.error('Failed to parse flash event:', e);
@@ -1245,8 +1255,8 @@
                                                 console.log('⚠️ No retained message received, checking if we need to initialize...');
                                                 // Don't overwrite if we already have data
                                                 if (flashCounter.totalFlashes === 0) {
-                                                    console.log('📝 Initializing empty counter in cloud...');
-                                                    saveFlashCounter();
+                                                    console.log('📝 Counter will be initialized by server when first event arrives');
+                                                    // saveFlashCounter();
                                                 }
                                             }
                                         }, 3000);
@@ -1293,6 +1303,9 @@
 
             // Add initial data point
             updateChart();
+
+            // Load flash counter from server immediately
+            loadFlashCounter();
 
             // Initialize flash counter UI (data will load from cloud when connected)
             updateFlashCounterUI();

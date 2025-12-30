@@ -1,0 +1,95 @@
+{
+  "totalFlashes": 8,
+  "devices": {
+    "test-device-001": {
+      "name": "Test Phone",
+      "count": 1,
+      "lastFlash": "2025-12-29T15:33:59.722564"
+    },
+    "test-device-002": {
+      "name": "Second Test Device",
+      "count": 1,
+      "lastFlash": "2025-12-29T15:36:27.189948"
+    },
+    "4e00d0e8-c3f": {
+      "name": "samsung SM-A536B",
+      "count": 5,
+      "lastFlash": "2025-12-30T06:39:38.410Z"
+    },
+    "cloud-test-001": {
+      "name": "Cloud Test Device",
+      "count": 1,
+      "lastFlash": "2025-12-30T07:34:50.694506"
+    }
+  },
+  "sessions": [],
+  "todayFlashes": 6,
+  "todayDate": "Tue Dec 30 2025",
+  "recentEvents": [
+    {
+      "deviceId": "4e00d0e8-c3f",
+      "deviceName": "samsung SM-A536B",
+      "firmwareType": "production",
+      "flashSize": 1852368,
+      "flashTime": 97272,
+      "timestamp": "2025-12-30T06:39:38.410Z"
+    },
+    {
+      "deviceId": "cloud-test-001",
+      "deviceName": "Cloud Test Device",
+      "firmwareType": "production",
+      "flashSize": 1048576,
+      "flashTime": 15000,
+      "timestamp": "2025-12-30T07:34:50.694506"
+    },
+    {
+      "deviceId": "4e00d0e8-c3f",
+      "deviceName": "samsung SM-A536B",
+      "firmwareType": "production",
+      "flashSize": 1852368,
+      "flashTime": 96776,
+      "timestamp": "2025-12-30T06:31:12.729Z"
+    },
+    {
+      "deviceId": "4e00d0e8-c3f",
+      "deviceName": "samsung SM-A536B",
+      "firmwareType": "production",
+      "flashSize": 1852368,
+      "flashTime": 96655,
+      "timestamp": "2025-12-30T06:31:12.608Z"
+    },
+    {
+      "deviceId": "4e00d0e8-c3f",
+      "deviceName": "samsung SM-A536B",
+      "firmwareType": "production",
+      "flashSize": 1852368,
+      "flashTime": 97030,
+      "timestamp": "2025-12-30T06:28:31.652Z"
+    },
+    {
+      "deviceId": "4e00d0e8-c3f",
+      "deviceName": "samsung SM-A536B",
+      "firmwareType": "production",
+      "flashSize": 1852368,
+      "flashTime": 96887,
+      "timestamp": "2025-12-30T06:28:31.510Z"
+    },
+    {
+      "deviceId": "test-device-002",
+      "deviceName": "Second Test Device",
+      "firmwareType": "production",
+      "flashSize": 1048576,
+      "flashTime": 15000,
+      "timestamp": "2025-12-29T15:36:27.189948"
+    },
+    {
+      "deviceId": "test-device-001",
+      "deviceName": "Test Phone",
+      "firmwareType": "production",
+      "flashSize": 1048576,
+      "flashTime": 15000,
+      "timestamp": "2025-12-29T15:33:59.722564"
+    }
+  ],
+  "lastUpdate": "2025-12-30T06:39:39.543Z"
+}
