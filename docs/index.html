@@ -535,6 +535,7 @@
 
                         if (data.recentEvents && Array.isArray(data.recentEvents)) {
                             recentFlashEvents = data.recentEvents;
+                            console.log(`📋 Loaded ${recentFlashEvents.length} recent flash events from Firebase`);
                         }
 
                         console.log('☁️ Loaded from Firebase:', flashCounter.totalFlashes);
@@ -687,7 +688,7 @@
                     <div class="flash-event-left">
                         <div class="flash-event-device">${event.deviceName || event.deviceId}</div>
                         <div class="flash-event-details">
-                            Size: ${sizeStr} | Duration: ${durationSec}s | Session: ${event.sessionId.slice(0, 8)}
+                            Size: ${sizeStr} | Duration: ${durationSec}s${event.sessionId ? ` | Session: ${event.sessionId.slice(0, 8)}` : ''}
                         </div>
                     </div>
                     <div class="flash-event-right">
@@ -1416,6 +1417,10 @@
             // Periodically sync with Firebase (every 30 seconds)
             setInterval(() => {
                 loadFlashCounter();
+                // Also save current state if we have data
+                if (flashCounter.totalFlashes > 0) {
+                    saveFlashCounterToFirebase();
+                }
             }, 30000);
         });
     </script>
