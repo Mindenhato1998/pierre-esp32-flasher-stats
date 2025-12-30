@@ -1,0 +1,444 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Pierre ESP32 Flash Counter - GitHub Storage</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            background: #0a0a0a;
+            color: #ffffff;
+            min-height: 100vh;
+            padding: 2rem;
+        }
+
+        .container {
+            max-width: 600px;
+            margin: 0 auto;
+        }
+
+        .header {
+            text-align: center;
+            margin-bottom: 3rem;
+            padding-bottom: 2rem;
+            border-bottom: 2px solid #333;
+        }
+
+        .header h1 {
+            font-size: 2rem;
+            font-weight: 700;
+            margin-bottom: 0.5rem;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            background-clip: text;
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .status {
+            text-align: center;
+            margin-bottom: 2rem;
+            padding: 1rem;
+            background: #1a1a1a;
+            border-radius: 8px;
+            border: 1px solid #333;
+        }
+
+        .status.connected {
+            border-color: #00ff88;
+            background: rgba(0, 255, 136, 0.1);
+        }
+
+        .counter-section {
+            background: #111;
+            border-radius: 12px;
+            padding: 2rem;
+            border: 1px solid #333;
+            text-align: center;
+        }
+
+        .counter-number {
+            font-size: 4rem;
+            font-weight: bold;
+            color: #00ff88;
+            margin: 1rem 0;
+            transition: all 0.3s ease;
+        }
+
+        .counter-label {
+            color: #888;
+            margin-bottom: 2rem;
+        }
+
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            gap: 1rem;
+            margin-top: 2rem;
+        }
+
+        .stat-item {
+            background: #1a1a1a;
+            padding: 1rem;
+            border-radius: 8px;
+            border: 1px solid #2a2a2a;
+        }
+
+        .stat-label {
+            font-size: 0.8rem;
+            color: #666;
+            margin-bottom: 0.5rem;
+        }
+
+        .stat-value {
+            font-size: 1.5rem;
+            font-weight: bold;
+            color: #fff;
+        }
+
+        .events-section {
+            background: #111;
+            border-radius: 12px;
+            padding: 2rem;
+            border: 1px solid #333;
+            margin-top: 2rem;
+        }
+
+        .events-title {
+            font-size: 1.2rem;
+            margin-bottom: 1rem;
+        }
+
+        .event-item {
+            background: #1a1a1a;
+            padding: 0.75rem;
+            border-radius: 6px;
+            margin-bottom: 0.5rem;
+            border: 1px solid #2a2a2a;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .event-device {
+            font-weight: 600;
+        }
+
+        .event-time {
+            font-size: 0.8rem;
+            color: #666;
+        }
+
+        .no-events {
+            text-align: center;
+            color: #666;
+            font-style: italic;
+            padding: 1rem;
+        }
+
+        .info-box {
+            background: rgba(0, 123, 255, 0.1);
+            border: 1px solid rgba(0, 123, 255, 0.3);
+            border-radius: 8px;
+            padding: 1rem;
+            margin-top: 2rem;
+            text-align: center;
+            font-size: 0.9rem;
+            color: #4da3ff;
+        }
+
+        .update-info {
+            text-align: center;
+            margin-top: 1rem;
+            font-size: 0.8rem;
+            color: #666;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>Pierre ESP32 Flash Counter</h1>
+            <p style="color: #888;">🐙 GitHub Pages Storage - Permanent & Free</p>
+        </div>
+
+        <div class="status" id="status">
+            <span id="statusText">Loading data from GitHub...</span>
+        </div>
+
+        <div class="counter-section">
+            <h2 style="margin-bottom: 1rem;">🔥 Global Flash Counter</h2>
+            <div class="counter-number" id="totalFlashes">0</div>
+            <p class="counter-label">Total ESP32 devices flashed worldwide</p>
+
+            <div class="stats-grid">
+                <div class="stat-item">
+                    <div class="stat-label">Today's Flashes</div>
+                    <div class="stat-value" id="todayFlashes">0</div>
+                </div>
+                <div class="stat-item">
+                    <div class="stat-label">Unique Devices</div>
+                    <div class="stat-value" id="uniqueDevices">0</div>
+                </div>
+            </div>
+        </div>
+
+        <div class="events-section">
+            <h3 class="events-title">📋 Recent Flash Events</h3>
+            <div id="eventsList">
+                <div class="no-events">No flash events yet</div>
+            </div>
+        </div>
+
+        <div class="info-box">
+            💡 This counter is stored on GitHub Pages. Data persists forever!<br>
+            Updates are handled via GitHub Actions triggered by MQTT events.
+        </div>
+
+        <div class="update-info" id="updateInfo"></div>
+    </div>
+
+    <script src="https://unpkg.com/mqtt/dist/mqtt.min.js"></script>
+    <script>
+        // GitHub Pages data URL - UPDATE THIS WITH YOUR GITHUB USERNAME AND REPO
+        const GITHUB_USER = 'Mindenhato1998';
+        const GITHUB_REPO = 'pierre-esp32-flasher-stats';
+        const DATA_URL = `https://${GITHUB_USER}.github.io/${GITHUB_REPO}/counter-data.json`;
+
+        // For local testing
+        const LOCAL_DATA_URL = './counter-data.json';
+        const IS_LOCAL = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+
+        // MQTT Configuration for live updates
+        const MQTT_HOST = 'wss://0c1bf62a21e94682adf340b8a2d3fe04.s1.eu.hivemq.cloud:8884/mqtt';
+        const MQTT_USER = 'pierreflasher';
+        const MQTT_PASS = 'Pierre2k23';
+        const EVENT_TOPIC = 'pierre/flash/events/+';
+
+        // State
+        let mqttClient = null;
+        let counterData = {
+            totalFlashes: 0,
+            todayFlashes: 0,
+            todayDate: new Date().toDateString(),
+            devices: {},
+            recentEvents: []
+        };
+
+        // Load counter data from GitHub
+        async function loadCounterData() {
+            const url = IS_LOCAL ? LOCAL_DATA_URL : DATA_URL;
+            console.log(`📂 Loading counter from: ${url}`);
+
+            try {
+                // Add timestamp to bypass cache
+                const response = await fetch(url + '?t=' + Date.now());
+
+                if (response.ok) {
+                    const data = await response.json();
+                    console.log('✅ Loaded counter from GitHub:', data);
+
+                    counterData = data;
+
+                    // Check if it's a new day
+                    const today = new Date().toDateString();
+                    if (counterData.todayDate !== today) {
+                        counterData.todayDate = today;
+                        counterData.todayFlashes = 0;
+                    }
+
+                    updateUI();
+                    updateStatus(true, 'Connected to GitHub & HiveMQ');
+                } else {
+                    console.error('Failed to load from GitHub:', response.status);
+                    updateStatus(false, 'Failed to load data from GitHub');
+                }
+            } catch (error) {
+                console.error('Error loading counter:', error);
+                updateStatus(false, 'Error loading data');
+
+                // Initialize with empty data if load fails
+                updateUI();
+            }
+        }
+
+        // Connect to MQTT for live updates
+        function connectMQTT() {
+            console.log('🔌 Connecting to HiveMQ for live updates...');
+
+            mqttClient = mqtt.connect(MQTT_HOST, {
+                username: MQTT_USER,
+                password: MQTT_PASS,
+                clientId: 'github_dashboard_' + Math.random().toString(36).substring(7),
+                clean: true,
+                reconnectPeriod: 1000
+            });
+
+            mqttClient.on('connect', () => {
+                console.log('✅ Connected to HiveMQ for live updates');
+
+                // Subscribe to flash events
+                mqttClient.subscribe(EVENT_TOPIC, {qos: 1}, (err) => {
+                    if (!err) {
+                        console.log(`📡 Subscribed to ${EVENT_TOPIC}`);
+                    }
+                });
+            });
+
+            mqttClient.on('message', (topic, message) => {
+                handleFlashEvent(topic, message.toString());
+            });
+
+            mqttClient.on('error', (error) => {
+                console.error('❌ MQTT error:', error);
+            });
+        }
+
+        // Handle incoming flash events
+        function handleFlashEvent(topic, message) {
+            if (topic.startsWith('pierre/flash/events/')) {
+                try {
+                    const eventData = JSON.parse(message);
+                    console.log('🎯 Live flash event:', eventData);
+
+                    // Update counters locally (GitHub update will happen via Actions)
+                    counterData.totalFlashes++;
+
+                    // Check for new day
+                    const today = new Date().toDateString();
+                    if (counterData.todayDate !== today) {
+                        counterData.todayDate = today;
+                        counterData.todayFlashes = 1;
+                    } else {
+                        counterData.todayFlashes++;
+                    }
+
+                    // Update device count
+                    const deviceId = eventData.deviceId || 'unknown';
+                    if (!counterData.devices[deviceId]) {
+                        counterData.devices[deviceId] = {
+                            name: eventData.deviceName || 'Unknown Device',
+                            count: 0
+                        };
+                    }
+                    counterData.devices[deviceId].count++;
+
+                    // Add to recent events (keep last 10)
+                    counterData.recentEvents.unshift({
+                        deviceName: eventData.deviceName || 'Unknown Device',
+                        firmwareType: eventData.firmwareType || 'production',
+                        timestamp: eventData.timestamp || new Date().toISOString()
+                    });
+                    counterData.recentEvents = counterData.recentEvents.slice(0, 10);
+
+                    // Update UI immediately
+                    updateUI();
+                    animateCounter();
+
+                    // Note: GitHub will be updated via Actions
+                    showUpdateNote('📤 GitHub update triggered via Actions...');
+
+                } catch (e) {
+                    console.error('Failed to process flash event:', e);
+                }
+            }
+        }
+
+        // Update UI
+        function updateUI() {
+            document.getElementById('totalFlashes').textContent = counterData.totalFlashes || 0;
+            document.getElementById('todayFlashes').textContent = counterData.todayFlashes || 0;
+            document.getElementById('uniqueDevices').textContent = Object.keys(counterData.devices || {}).length;
+
+            // Update events list
+            const eventsList = document.getElementById('eventsList');
+            if (counterData.recentEvents && counterData.recentEvents.length > 0) {
+                eventsList.innerHTML = counterData.recentEvents.map(event => {
+                    const time = new Date(event.timestamp).toLocaleTimeString();
+                    return `
+                        <div class="event-item">
+                            <div>
+                                <div class="event-device">${event.deviceName}</div>
+                                <div class="event-time">${event.firmwareType}</div>
+                            </div>
+                            <div class="event-time">${time}</div>
+                        </div>
+                    `;
+                }).join('');
+            } else {
+                eventsList.innerHTML = '<div class="no-events">No flash events yet</div>';
+            }
+
+            // Update last update time
+            if (counterData.lastUpdate) {
+                const updateTime = new Date(counterData.lastUpdate);
+                document.getElementById('updateInfo').textContent =
+                    `Last GitHub update: ${updateTime.toLocaleString()}`;
+            }
+        }
+
+        // Animate counter on update
+        function animateCounter() {
+            const counter = document.getElementById('totalFlashes');
+            counter.style.transform = 'scale(1.2)';
+            counter.style.color = '#ffff00';
+            setTimeout(() => {
+                counter.style.transform = 'scale(1)';
+                counter.style.color = '#00ff88';
+            }, 300);
+        }
+
+        // Update connection status
+        function updateStatus(connected, message) {
+            const status = document.getElementById('status');
+            const statusText = document.getElementById('statusText');
+
+            if (connected) {
+                status.className = 'status connected';
+                statusText.textContent = '✅ ' + message;
+            } else {
+                status.className = 'status';
+                statusText.textContent = '❌ ' + message;
+            }
+        }
+
+        // Show update note
+        function showUpdateNote(message) {
+            const info = document.getElementById('updateInfo');
+            info.textContent = message;
+            setTimeout(() => {
+                if (counterData.lastUpdate) {
+                    const updateTime = new Date(counterData.lastUpdate);
+                    info.textContent = `Last GitHub update: ${updateTime.toLocaleString()}`;
+                }
+            }, 3000);
+        }
+
+        // Reload data periodically to get GitHub updates
+        function startPeriodicReload() {
+            // Reload every 30 seconds to get GitHub updates
+            setInterval(() => {
+                loadCounterData();
+            }, 30000);
+        }
+
+        // Initialize on load
+        document.addEventListener('DOMContentLoaded', async () => {
+            // Load initial data from GitHub
+            await loadCounterData();
+
+            // Connect to MQTT for live updates
+            connectMQTT();
+
+            // Start periodic reload
+            startPeriodicReload();
+        });
+    </script>
+</body>
+</html>

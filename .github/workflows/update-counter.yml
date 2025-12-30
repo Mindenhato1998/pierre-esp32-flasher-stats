@@ -1,0 +1,75 @@
+name: Update Flash Counter
+
+on:
+  repository_dispatch:
+    types: [update-flash-counter]
+
+jobs:
+  update-counter:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v3
+
+      - name: Update counter
+        run: |
+          # Read current counter
+          COUNTER_FILE="docs/counter-data.json"
+
+          # Parse event data
+          DEVICE_ID="${{ github.event.client_payload.deviceId }}"
+          DEVICE_NAME="${{ github.event.client_payload.deviceName }}"
+          FIRMWARE_TYPE="${{ github.event.client_payload.firmwareType }}"
+
+          # Update counter using Python
+          python3 -c "
+          import json
+          from datetime import datetime
+
+          # Load current data
+          with open('$COUNTER_FILE', 'r') as f:
+              data = json.load(f)
+
+          # Update counters
+          data['totalFlashes'] = data.get('totalFlashes', 0) + 1
+
+          # Check if new day
+          today = datetime.now().strftime('%a %b %d %Y')
+          if data.get('todayDate') != today:
+              data['todayDate'] = today
+              data['todayFlashes'] = 1
+          else:
+              data['todayFlashes'] = data.get('todayFlashes', 0) + 1
+
+          # Update device info
+          device_id = '$DEVICE_ID' or 'unknown'
+          if device_id not in data.get('devices', {}):
+              data['devices'] = data.get('devices', {})
+              data['devices'][device_id] = {'name': '$DEVICE_NAME', 'count': 0}
+          data['devices'][device_id]['count'] += 1
+
+          # Add to recent events
+          event = {
+              'deviceName': '$DEVICE_NAME',
+              'firmwareType': '$FIRMWARE_TYPE',
+              'timestamp': datetime.utcnow().isoformat() + 'Z'
+          }
+          data['recentEvents'] = [event] + data.get('recentEvents', [])[:9]
+
+          # Update timestamp
+          data['lastUpdate'] = datetime.utcnow().isoformat() + 'Z'
+
+          # Save
+          with open('$COUNTER_FILE', 'w') as f:
+              json.dump(data, f, indent=2)
+          "
+
+      - name: Commit and push
+        run: |
+          git config --global user.name 'GitHub Actions'
+          git config --global user.email 'actions@github.com'
+          git add docs/counter-data.json
+          git commit -m "Update flash counter: ${{ github.event.client_payload.deviceName }}"
+          git push
