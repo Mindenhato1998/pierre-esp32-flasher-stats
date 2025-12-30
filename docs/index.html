@@ -558,8 +558,34 @@
             }
         }
 
-        // Save flash counter to Firebase
+        // Save flash counter to Firebase (preserves existing data if counter values are 0)
         async function saveFlashCounterToFirebase() {
+            // If counter values are 0, try to load existing data first
+            if (flashCounter.totalFlashes === 0 && recentFlashEvents.length === 0) {
+                try {
+                    const loadResponse = await fetch(FIREBASE_URL + COUNTER_PATH);
+                    if (loadResponse.ok) {
+                        const existingData = await loadResponse.json();
+                        if (existingData && existingData.totalFlashes > 0) {
+                            // Preserve existing data
+                            flashCounter.totalFlashes = existingData.totalFlashes || 0;
+                            flashCounter.devices = existingData.devices || {};
+                            flashCounter.sessions = new Set(existingData.sessions || []);
+                            flashCounter.todayFlashes = existingData.todayFlashes || 0;
+                            flashCounter.todayDate = existingData.todayDate || new Date().toDateString();
+                            if (existingData.recentEvents && Array.isArray(existingData.recentEvents)) {
+                                recentFlashEvents = existingData.recentEvents;
+                            }
+                            console.log('☁️ Preserved existing Firebase data during save');
+                            updateFlashCounterUI();
+                            updateFlashEventsUI();
+                        }
+                    }
+                } catch (error) {
+                    console.error('Failed to preserve existing data:', error);
+                }
+            }
+
             const data = {
                 totalFlashes: flashCounter.totalFlashes,
                 devices: flashCounter.devices,
@@ -671,24 +697,30 @@
                 const firmwareClass = event.firmwareType === 'custom' ? 'firmware-custom' : 'firmware-production';
                 const firmwareLabel = event.firmwareType === 'custom' ? 'CUSTOM' : 'PRODUCTION';
 
-                // Format flash size
-                const sizeKB = (event.flashSize / 1024).toFixed(0);
-                const sizeMB = (event.flashSize / (1024 * 1024)).toFixed(2);
-                const sizeStr = event.flashSize > 1048576 ? `${sizeMB} MB` : `${sizeKB} KB`;
+                // Format flash size - handle null/undefined values
+                let sizeStr = 'Unknown';
+                if (event.flashSize && !isNaN(event.flashSize)) {
+                    const sizeKB = (event.flashSize / 1024).toFixed(0);
+                    const sizeMB = (event.flashSize / (1024 * 1024)).toFixed(2);
+                    sizeStr = event.flashSize > 1048576 ? `${sizeMB} MB` : `${sizeKB} KB`;
+                }
 
                 // Format time
                 const time = new Date(event.timestamp);
                 const timeStr = time.toLocaleTimeString();
                 const dateStr = time.toLocaleDateString();
 
-                // Format duration
-                const durationSec = (event.flashTime / 1000).toFixed(1);
+                // Format duration - handle null/undefined values
+                let durationStr = 'Unknown';
+                if (event.flashTime && !isNaN(event.flashTime)) {
+                    durationStr = `${(event.flashTime / 1000).toFixed(1)}s`;
+                }
 
                 eventDiv.innerHTML = `
                     <div class="flash-event-left">
                         <div class="flash-event-device">${event.deviceName || event.deviceId}</div>
                         <div class="flash-event-details">
-                            Size: ${sizeStr} | Duration: ${durationSec}s${event.sessionId ? ` | Session: ${event.sessionId.slice(0, 8)}` : ''}
+                            Size: ${sizeStr} | Duration: ${durationStr}${event.sessionId ? ` | Session: ${event.sessionId.slice(0, 8)}` : ''}
                         </div>
                     </div>
                     <div class="flash-event-right">
