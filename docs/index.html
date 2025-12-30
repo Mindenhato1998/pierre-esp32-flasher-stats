@@ -494,7 +494,8 @@
             devices: {},  // {deviceId: {name, count, lastSeen}}
             sessions: new Set(),  // Track unique session IDs
             todayFlashes: 0,
-            todayDate: new Date().toDateString()
+            todayDate: new Date().toDateString(),
+            lastUpdate: null
         };
 
         let isUpdatingCounter = false;  // Prevent race conditions
@@ -916,6 +917,36 @@
             const parts = topic.split('/');
             if (parts.length < 3 || parts[0] !== 'pierre') return;
 
+            // Handle flashcounter state topic (Firebase backup from MQTT)
+            if (topic === 'pierre/flashcounter/state') {
+                try {
+                    const data = JSON.parse(message);
+
+                    // Use MQTT backup if Firebase is not available or data is newer
+                    if (!flashCounter.lastUpdate ||
+                        (data.lastUpdate && new Date(data.lastUpdate) > new Date(flashCounter.lastUpdate))) {
+                        console.log('📡 Using MQTT backup data');
+
+                        flashCounter.totalFlashes = data.totalFlashes || 0;
+                        flashCounter.devices = data.devices || {};
+                        flashCounter.todayFlashes = data.todayFlashes || 0;
+                        flashCounter.todayDate = data.todayDate || new Date().toDateString();
+
+                        if (data.recentEvents) {
+                            recentFlashEvents = data.recentEvents;
+                        }
+
+                        flashCounter.lastUpdate = data.lastUpdate;
+
+                        updateFlashCounterUI();
+                        updateFlashEventsUI();
+                    }
+                } catch (e) {
+                    console.error('Error parsing flashcounter state:', e);
+                }
+                return;
+            }
+
             // Handle global flash counter topic
             if (topic === COUNTER_TOPIC) {
                 try {
@@ -1043,6 +1074,23 @@
 
                         // Save to Firebase
                         saveFlashCounterToFirebase();
+
+                        // Also publish to MQTT retained for backup
+                        if (client && client.connected) {
+                            const backupData = {
+                                totalFlashes: flashCounter.totalFlashes,
+                                devices: flashCounter.devices,
+                                todayFlashes: flashCounter.todayFlashes,
+                                todayDate: flashCounter.todayDate,
+                                recentEvents: recentFlashEvents.slice(0, 10),
+                                lastUpdate: new Date().toISOString()
+                            };
+
+                            client.publish('pierre/flashcounter/state', JSON.stringify(backupData), {
+                                retain: true,
+                                qos: 1
+                            });
+                        }
 
                     } catch (e) {
                         console.error('Failed to parse flash event:', e);
@@ -1271,6 +1319,13 @@
                             console.error('❌ Subscription error:', err);
                         } else {
                             console.log('📡 Subscribed to pierre/#');
+
+                            // Subscribe to flashcounter state for backup
+                            client.subscribe('pierre/flashcounter/state', {qos: 1}, (err) => {
+                                if (!err) {
+                                    console.log('📡 Subscribed to flashcounter state');
+                                }
+                            });
 
                             // IMPORTANT: Force request the retained message by resubscribing to counter topic
                             setTimeout(() => {
