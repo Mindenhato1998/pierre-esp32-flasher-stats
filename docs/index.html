@@ -277,35 +277,43 @@
         }
 
         .flash-counter-stats {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-            gap: 1rem;
             margin-top: 2rem;
         }
 
-        .flash-stat-item {
+        .device-flash-list {
             background: rgba(255, 255, 255, 0.05);
             padding: 1rem;
             border-radius: 8px;
             border: 1px solid rgba(255, 255, 255, 0.1);
         }
 
-        .flash-stat-label {
-            color: #888;
-            font-size: 0.9rem;
-            margin-bottom: 0.5rem;
+        .device-flash-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 0.75rem;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
         }
 
-        .flash-stat-value {
+        .device-flash-item:last-child {
+            border-bottom: none;
+        }
+
+        .device-flash-name {
             color: #fff;
-            font-size: 1.5rem;
+            font-size: 1rem;
+        }
+
+        .device-flash-count {
+            color: #4fc3f7;
+            font-size: 1.1rem;
             font-weight: 600;
         }
 
-        .flash-device-name {
-            color: #aaa;
-            font-size: 0.9rem;
-            margin-top: 0.25rem;
+        .device-list-empty {
+            color: #888;
+            text-align: center;
+            padding: 2rem;
         }
 
         /* Recent Flash Events */
@@ -441,18 +449,8 @@
             <p style="color: #888; margin-top: 0.5rem;">Total ESP32 devices flashed worldwide</p>
 
             <div class="flash-counter-stats">
-                <div class="flash-stat-item">
-                    <div class="flash-stat-label">Unique Devices</div>
-                    <div class="flash-stat-value" id="uniqueDevicesCount">0</div>
-                </div>
-                <div class="flash-stat-item">
-                    <div class="flash-stat-label">Today's Flashes</div>
-                    <div class="flash-stat-value" id="todayFlashCount">0</div>
-                </div>
-                <div class="flash-stat-item">
-                    <div class="flash-stat-label">Top Device</div>
-                    <div class="flash-stat-value" id="topDeviceCount">-</div>
-                    <div class="flash-device-name" id="topDeviceName"></div>
+                <div class="device-flash-list" id="deviceFlashList">
+                    <!-- Device list will be populated here -->
                 </div>
             </div>
         </div>
@@ -653,25 +651,48 @@
         // Update flash counter UI
         function updateFlashCounterUI() {
             document.getElementById('flashCounterNumber').textContent = flashCounter.totalFlashes;
-            document.getElementById('uniqueDevicesCount').textContent = Object.keys(flashCounter.devices).length;
-            document.getElementById('todayFlashCount').textContent = flashCounter.todayFlashes;
 
-            // Find top device
-            let topDevice = null;
-            let maxFlashes = 0;
-            Object.entries(flashCounter.devices).forEach(([id, device]) => {
-                if (device.count > maxFlashes) {
-                    maxFlashes = device.count;
-                    topDevice = device;
-                }
-            });
+            // Update device list
+            const deviceList = document.getElementById('deviceFlashList');
 
-            if (topDevice) {
-                document.getElementById('topDeviceCount').textContent = topDevice.count;
-                document.getElementById('topDeviceName').textContent = topDevice.name || 'Unknown';
+            // Get all devices and sort by count (descending)
+            const devices = Object.entries(flashCounter.devices)
+                .map(([id, device]) => ({
+                    id: id,
+                    name: device.name || id,
+                    count: device.count
+                }))
+                .sort((a, b) => b.count - a.count);
+
+            if (devices.length === 0) {
+                deviceList.innerHTML = '<div class="device-list-empty">No devices flashed yet</div>';
             } else {
-                document.getElementById('topDeviceCount').textContent = '-';
-                document.getElementById('topDeviceName').textContent = '';
+                // Clear and populate the list
+                deviceList.innerHTML = '';
+
+                // Add header with unique devices and today's flashes
+                const headerDiv = document.createElement('div');
+                headerDiv.className = 'device-flash-item';
+                headerDiv.style.borderBottom = '2px solid rgba(79, 195, 247, 0.3)';
+                headerDiv.style.marginBottom = '0.5rem';
+                headerDiv.innerHTML = `
+                    <div style="color: #888;">
+                        <span>Unique Devices: <strong style="color: #4fc3f7;">${devices.length}</strong></span>
+                        <span style="margin-left: 2rem;">Today: <strong style="color: #4fc3f7;">${flashCounter.todayFlashes}</strong></span>
+                    </div>
+                `;
+                deviceList.appendChild(headerDiv);
+
+                // Add each device
+                devices.forEach(device => {
+                    const deviceDiv = document.createElement('div');
+                    deviceDiv.className = 'device-flash-item';
+                    deviceDiv.innerHTML = `
+                        <div class="device-flash-name">${device.name}</div>
+                        <div class="device-flash-count">${device.count} flash${device.count !== 1 ? 'es' : ''}</div>
+                    `;
+                    deviceList.appendChild(deviceDiv);
+                });
             }
         }
 
