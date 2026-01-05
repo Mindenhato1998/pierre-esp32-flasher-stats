@@ -1374,7 +1374,13 @@
                         }
                     } catch (e) {
                         console.log('⚠️ Failed to parse online message:', message);
-                        deviceName = message || deviceId;
+                        // Don't use the message as device name if parsing failed
+                        // Keep existing name if we have it, otherwise use deviceId
+                        if (connectedDevices.has(deviceId)) {
+                            deviceName = connectedDevices.get(deviceId).name;
+                        } else {
+                            deviceName = deviceId;
+                        }
                     }
                 } else if (status === 'offline') {
                     // Device going offline, keep in list but mark as offline
@@ -1441,9 +1447,11 @@
                 const deviceKey = deviceId.substring(0, 8);
                 if (!allTimeDevices[deviceKey]) {
                     // New device - add to all-time list
+                    // Don't use "online" or "offline" as device name
+                    const cleanName = (deviceName && deviceName !== 'online' && deviceName !== 'offline') ? deviceName : deviceId;
                     allTimeDevices[deviceKey] = {
-                        name: deviceName || deviceId,
-                        model: extractModelFromName(deviceName || deviceId),
+                        name: cleanName,
+                        model: extractModelFromName(cleanName),
                         firstSeen: Date.now(),
                         lastSeen: Date.now(),
                         connectCount: 1
@@ -1458,7 +1466,10 @@
                         allTimeDevices[deviceKey].connectCount = (allTimeDevices[deviceKey].connectCount || 1) + 1;
                     }
                     allTimeDevices[deviceKey].lastSeen = Date.now();
-                    allTimeDevices[deviceKey].name = deviceName || allTimeDevices[deviceKey].name;
+                    // Only update name if we have a better one (not "online" or deviceId)
+                    if (deviceName && deviceName !== deviceId && deviceName !== 'online' && deviceName !== 'offline') {
+                        allTimeDevices[deviceKey].name = deviceName;
+                    }
                 }
 
                 // Update UI
