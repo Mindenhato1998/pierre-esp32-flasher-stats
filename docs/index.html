@@ -538,6 +538,39 @@
                 if (response.ok) {
                     const data = await response.json();
                     if (data) {
+                        // Clean up any bad data before using it
+                        let needsSave = false;
+                        for (const [deviceKey, device] of Object.entries(data)) {
+                            // Check if name is bad (status message or just an ID)
+                            const isBadName = device.name === 'online' ||
+                                            device.name === 'offline' ||
+                                            device.name === deviceKey ||
+                                            device.name.match(/^[0-9a-f-]+$/i); // Just hex and dashes
+
+                            if (isBadName) {
+                                // Try to get a better name from connectedDevices if available
+                                const connectedDevice = Array.from(connectedDevices.entries())
+                                    .find(([id, _]) => id.startsWith(deviceKey));
+
+                                if (connectedDevice && connectedDevice[1].name &&
+                                    connectedDevice[1].name !== deviceKey &&
+                                    connectedDevice[1].name !== 'online' &&
+                                    connectedDevice[1].name !== 'offline') {
+                                    device.name = connectedDevice[1].name;
+                                    device.model = extractModelFromName(connectedDevice[1].name);
+                                    needsSave = true;
+                                    console.log(`🔧 Fixed device name: ${deviceKey} -> ${device.name}`);
+                                } else {
+                                    // Keep as is for now, will be fixed when device reconnects properly
+                                    console.log(`⚠️ Device ${deviceKey} has bad name: "${device.name}", waiting for proper reconnection`);
+                                }
+                            }
+                        }
+
+                        // Save if we fixed any names
+                        if (needsSave) {
+                            saveAllTimeDevices();
+                        }
                         allTimeDevices = data;
                         console.log(`📱 Loaded ${Object.keys(allTimeDevices).length} devices from Firebase`);
                         updateAllTimeDeviceListUI();
@@ -1437,8 +1470,15 @@
                     ? pageLoadTime - 40000  // Mark as 40s old during entire initial load period
                     : now;
 
+                // Get existing device data if we have it
+                const existingDevice = connectedDevices.get(deviceId);
+                // Don't overwrite with bad names
+                const effectiveName = (deviceName && deviceName !== 'online' && deviceName !== 'offline')
+                    ? deviceName
+                    : (existingDevice?.name || deviceId);
+
                 connectedDevices.set(deviceId, {
-                    name: deviceName || deviceId,
+                    name: effectiveName,
                     lastSeen: effectiveLastSeen,
                     topic: topic
                 });
@@ -1466,9 +1506,28 @@
                         allTimeDevices[deviceKey].connectCount = (allTimeDevices[deviceKey].connectCount || 1) + 1;
                     }
                     allTimeDevices[deviceKey].lastSeen = Date.now();
-                    // Only update name if we have a better one (not "online" or deviceId)
-                    if (deviceName && deviceName !== deviceId && deviceName !== 'online' && deviceName !== 'offline') {
+
+                    // Only update name if we have a REAL device name (not status messages or IDs)
+                    // Check if it's a real device name (contains letters and possibly spaces/apostrophes)
+                    const isRealDeviceName = deviceName &&
+                                           deviceName !== deviceId &&
+                                           deviceName !== 'online' &&
+                                           deviceName !== 'offline' &&
+                                           deviceName.length > 8 && // Real names are usually longer than IDs
+                                           /[a-zA-Z]/.test(deviceName) && // Contains letters
+                                           !deviceName.match(/^[0-9a-f-]+$/i); // Not just hex and dashes (like IDs)
+
+                    if (isRealDeviceName) {
+                        const oldName = allTimeDevices[deviceKey].name;
                         allTimeDevices[deviceKey].name = deviceName;
+                        console.log(`✅ Updated device name: ${deviceKey} -> ${deviceName}`);
+
+                        // Only save to Firebase if name actually changed
+                        if (oldName !== deviceName) {
+                            saveAllTimeDevices();
+                        }
+                    } else {
+                        console.log(`⚠️ Keeping existing name for ${deviceKey}, rejected: "${deviceName}"`);
                     }
                 }
 
