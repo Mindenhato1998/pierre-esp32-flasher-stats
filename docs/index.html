@@ -405,6 +405,20 @@
             font-style: italic;
             padding: 2rem;
         }
+
+        /* Responsive layout for mobile devices */
+        @media (max-width: 768px) {
+            .two-column-layout {
+                grid-template-columns: 1fr !important;
+            }
+        }
+
+        /* Make both columns equal height */
+        .device-column {
+            display: flex;
+            flex-direction: column;
+            height: 100%;
+        }
     </style>
 </head>
 <body>
@@ -419,32 +433,40 @@
             <span id="connectionText">Connecting to HiveMQ...</span>
         </div>
 
-        <!-- All-Time Device List -->
-        <div class="flash-counter-section" style="margin-top: 2rem;">
-            <h2 class="flash-counter-title">📱 All-Time Connected Devices</h2>
-            <p style="color: #888; margin-bottom: 1rem;">Every mobile device that has ever connected</p>
+        <!-- Two Column Layout for Devices -->
+        <div class="two-column-layout" style="display: grid; grid-template-columns: 1fr 1fr; gap: 2rem; margin-top: 2rem;">
+            <!-- Left Column: All-Time Device List -->
+            <div class="flash-counter-section" style="margin-top: 0;">
+                <h2 class="flash-counter-title">📱 All-Time Connected Devices</h2>
+                <p style="color: #888; margin-bottom: 1rem;">Every mobile device that has ever connected</p>
 
-            <div id="allTimeDeviceList" style="max-height: 400px; overflow-y: auto; text-align: left; margin-top: 1rem; padding: 1rem; background: rgba(0,0,0,0.5); border-radius: 8px;">
-                <div style="color: #666; text-align: center; padding: 2rem;">Loading device history...</div>
+                <div id="allTimeDeviceList" style="max-height: 400px; overflow-y: auto; text-align: left; margin-top: 1rem; padding: 1rem; background: rgba(0,0,0,0.5); border-radius: 8px;">
+                    <div style="color: #666; text-align: center; padding: 2rem;">Loading device history...</div>
+                </div>
+
+                <div style="margin-top: 1rem; display: flex; justify-content: space-between; align-items: center; padding: 1rem; background: rgba(0,0,0,0.3); border-radius: 8px;">
+                    <div style="text-align: left;">
+                        <div style="color: #888; font-size: 0.9rem;">Total Devices</div>
+                        <div style="color: #fff; font-size: 1.5rem; font-weight: bold;" id="totalDeviceCount">0</div>
+                    </div>
+                    <div style="text-align: right;">
+                        <div style="color: #888; font-size: 0.9rem;">Last Update</div>
+                        <div style="color: #fff; font-size: 0.9rem;" id="deviceListLastUpdate">Never</div>
+                    </div>
+                </div>
             </div>
 
-            <div style="margin-top: 1rem; display: flex; justify-content: space-between; align-items: center; padding: 1rem; background: rgba(0,0,0,0.3); border-radius: 8px;">
-                <div style="text-align: left;">
-                    <div style="color: #888; font-size: 0.9rem;">Total Devices</div>
-                    <div style="color: #fff; font-size: 1.5rem; font-weight: bold;" id="totalDeviceCount">0</div>
+            <!-- Right Column: Currently Connected Devices -->
+            <div class="flash-counter-section" style="margin-top: 0;">
+                <h2 class="flash-counter-title">🟢 Currently Connected</h2>
+                <p style="color: #888; margin-bottom: 1rem;">Real-time device status</p>
+                <div class="device-list" id="deviceList" style="max-height: 400px; overflow-y: auto; padding: 1rem; background: rgba(0,0,0,0.5); border-radius: 8px;">
+                    <div class="no-devices" id="noDevices">
+                        <p>No devices connected</p>
+                    </div>
                 </div>
-                <div style="text-align: right;">
-                    <div style="color: #888; font-size: 0.9rem;">Last Update</div>
-                    <div style="color: #fff; font-size: 0.9rem;" id="deviceListLastUpdate">Never</div>
-                </div>
-            </div>
-        </div>
-
-        <div class="devices-section">
-            <h2 class="devices-title">Connected Devices</h2>
-            <div class="device-list" id="deviceList">
-                <div class="no-devices" id="noDevices">
-                    <p>No devices connected</p>
+                <div style="margin-top: 1rem; padding: 1rem; background: rgba(0,0,0,0.3); border-radius: 8px;">
+                    <p style="color: #888; text-align: center; margin: 0;">Updates every 5 seconds</p>
                 </div>
             </div>
         </div>
