@@ -457,6 +457,27 @@
             </div>
         </div>
 
+        <!-- All-Time Device List -->
+        <div class="flash-counter-section" style="margin-top: 2rem;">
+            <h2 class="flash-counter-title">📱 All-Time Connected Devices</h2>
+            <p style="color: #888; margin-bottom: 1rem;">Every mobile device that has ever connected</p>
+
+            <div id="allTimeDeviceList" style="max-height: 400px; overflow-y: auto; text-align: left; margin-top: 1rem; padding: 1rem; background: rgba(0,0,0,0.5); border-radius: 8px;">
+                <div style="color: #666; text-align: center; padding: 2rem;">Loading device history...</div>
+            </div>
+
+            <div style="margin-top: 1rem; display: flex; justify-content: space-between; align-items: center; padding: 1rem; background: rgba(0,0,0,0.3); border-radius: 8px;">
+                <div style="text-align: left;">
+                    <div style="color: #888; font-size: 0.9rem;">Total Devices</div>
+                    <div style="color: #fff; font-size: 1.5rem; font-weight: bold;" id="totalDeviceCount">0</div>
+                </div>
+                <div style="text-align: right;">
+                    <div style="color: #888; font-size: 0.9rem;">Last Update</div>
+                    <div style="color: #fff; font-size: 0.9rem;" id="deviceListLastUpdate">Never</div>
+                </div>
+            </div>
+        </div>
+
         <!-- Recent Flash Events -->
         <div class="flash-events-section">
             <h2 class="flash-events-title">📋 Recent Flash Events</h2>
@@ -541,6 +562,120 @@
 
         // Store recent flash events (keep last 20)
         const recentFlashEvents = [];
+
+        // All-time device list - stores every device that ever connected
+        let allTimeDevices = {};  // {deviceId: {name, model, firstSeen, lastSeen, connectCount}}
+
+        // Extract model from device name (e.g., "Bence's Redmi Note 10 Pro" -> "Redmi Note 10 Pro")
+        function extractModelFromName(deviceName) {
+            if (!deviceName) return 'Unknown Model';
+
+            // Common patterns: "Name's Model", "Model", etc.
+            const patterns = [
+                /^.*?'s\s+(.+)$/i,  // "Bence's Redmi Note 10 Pro" -> "Redmi Note 10 Pro"
+                /^(.+?)\s+\(.+\)$/,  // "Device (ID)" -> "Device"
+                /^(.+)$/             // Just return as is
+            ];
+
+            for (const pattern of patterns) {
+                const match = deviceName.match(pattern);
+                if (match) {
+                    return match[1].trim();
+                }
+            }
+
+            return deviceName;
+        }
+
+        // Load all-time device list from Firebase
+        async function loadAllTimeDevices() {
+            try {
+                if (window.firebaseDb) {
+                    const devicesRef = window.firebaseRef(window.firebaseDb, 'all_time_devices');
+                    const snapshot = await window.firebaseGet(devicesRef);
+
+                    if (snapshot.exists()) {
+                        allTimeDevices = snapshot.val();
+                        console.log(`📱 Loaded ${Object.keys(allTimeDevices).length} devices from Firebase`);
+                        updateAllTimeDeviceListUI();
+                    } else {
+                        console.log('📱 No device history in Firebase yet');
+                    }
+                }
+            } catch (error) {
+                console.error('Failed to load device list from Firebase:', error);
+            }
+        }
+
+        // Save all-time device list to Firebase
+        async function saveAllTimeDevices() {
+            try {
+                if (window.firebaseDb) {
+                    const devicesRef = window.firebaseRef(window.firebaseDb, 'all_time_devices');
+                    await window.firebaseSet(devicesRef, allTimeDevices);
+                    console.log('💾 Saved device list to Firebase');
+                }
+            } catch (error) {
+                console.error('Failed to save device list to Firebase:', error);
+            }
+        }
+
+        // Update all-time device list UI
+        function updateAllTimeDeviceListUI() {
+            const listElement = document.getElementById('allTimeDeviceList');
+            const countElement = document.getElementById('totalDeviceCount');
+            const updateElement = document.getElementById('deviceListLastUpdate');
+
+            const deviceCount = Object.keys(allTimeDevices).length;
+            countElement.textContent = deviceCount;
+            updateElement.textContent = new Date().toLocaleString();
+
+            if (deviceCount === 0) {
+                listElement.innerHTML = '<div style="color: #666; text-align: center; padding: 2rem;">No devices have connected yet</div>';
+                return;
+            }
+
+            // Sort devices by last seen (most recent first)
+            const sortedDevices = Object.entries(allTimeDevices)
+                .sort((a, b) => b[1].lastSeen - a[1].lastSeen);
+
+            let html = '<div style="display: grid; gap: 0.5rem;">';
+
+            sortedDevices.forEach(([deviceId, device], index) => {
+                const isOnline = connectedDevices.has(deviceId);
+                const statusColor = isOnline ? '#00ff88' : '#666';
+                const statusText = isOnline ? '🟢 Online' : '⚫ Offline';
+
+                const firstSeenDate = new Date(device.firstSeen).toLocaleDateString();
+                const lastSeenDate = new Date(device.lastSeen).toLocaleDateString();
+                const lastSeenTime = new Date(device.lastSeen).toLocaleTimeString();
+
+                html += `
+                    <div style="padding: 1rem; background: rgba(255,255,255,0.03); border-radius: 8px; border-left: 3px solid ${statusColor};">
+                        <div style="display: flex; justify-content: space-between; align-items: start;">
+                            <div>
+                                <div style="font-weight: bold; color: #fff; font-size: 1.1rem;">${device.name}</div>
+                                <div style="color: #888; font-size: 0.9rem; margin-top: 0.25rem;">
+                                    ${device.model || 'Unknown Model'} • ID: ${deviceId.substring(0, 8)}
+                                </div>
+                                <div style="color: #666; font-size: 0.85rem; margin-top: 0.5rem;">
+                                    First seen: ${firstSeenDate} • Last: ${lastSeenDate} ${lastSeenTime}
+                                </div>
+                                <div style="color: #666; font-size: 0.85rem;">
+                                    Connections: ${device.connectCount || 1}
+                                </div>
+                            </div>
+                            <div style="text-align: right;">
+                                <div style="font-size: 0.9rem;">${statusText}</div>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            });
+
+            html += '</div>';
+            listElement.innerHTML = html;
+        }
 
         // Load flash counter from Firebase (primary) and HiveMQ (fallback)
         async function loadFlashCounter() {
@@ -1204,6 +1339,29 @@
                     topic: topic
                 });
 
+                // Update all-time device list
+                const deviceKey = deviceId.substring(0, 8);
+                if (!allTimeDevices[deviceKey]) {
+                    // New device - add to all-time list
+                    allTimeDevices[deviceKey] = {
+                        name: deviceName || deviceId,
+                        model: extractModelFromName(deviceName || deviceId),
+                        firstSeen: Date.now(),
+                        lastSeen: Date.now(),
+                        connectCount: 1
+                    };
+                    console.log(`📱 New device added to all-time list: ${deviceName || deviceId}`);
+                    saveAllTimeDevices();
+                } else {
+                    // Existing device - update last seen and connect count
+                    allTimeDevices[deviceKey].lastSeen = Date.now();
+                    allTimeDevices[deviceKey].name = deviceName || allTimeDevices[deviceKey].name;
+                    allTimeDevices[deviceKey].connectCount = (allTimeDevices[deviceKey].connectCount || 1) + 1;
+                }
+
+                // Update UI
+                updateAllTimeDeviceListUI();
+
                 if (isInitialLoad) {
                     console.log(`🕐 Initial load: ${deviceName || deviceId} marked as old (will be cleaned up soon)`);
                 }
@@ -1330,6 +1488,7 @@
             console.log('🔥 Loading flash counter from Firebase...');
             setTimeout(() => {
                 loadFlashCounter();
+                loadAllTimeDevices();  // Load all-time device list
             }, 1000); // Wait a bit for Firebase to initialize
 
             // Setup reset button
