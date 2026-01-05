@@ -470,6 +470,45 @@
 
     <script src="https://unpkg.com/mqtt/dist/mqtt.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+    <!-- Firebase SDK -->
+    <script type="module">
+        import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js';
+        import { getDatabase, ref, set, get, onValue, serverTimestamp } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js';
+
+        // Make Firebase functions globally available
+        window.firebaseApp = null;
+        window.firebaseDb = null;
+        window.firebaseRef = ref;
+        window.firebaseSet = set;
+        window.firebaseGet = get;
+        window.firebaseOnValue = onValue;
+        window.firebaseServerTimestamp = serverTimestamp;
+
+        // Firebase configuration - Pierre Flasher Counter
+        const firebaseConfig = {
+            apiKey: "AIzaSyCBnwNg007wDtwMsu525oCrwNrCxYZRNKk",
+            authDomain: "pierre-flasher-counter.firebaseapp.com",
+            databaseURL: "https://pierre-flasher-counter-default-rtdb.firebaseio.com",
+            projectId: "pierre-flasher-counter",
+            storageBucket: "pierre-flasher-counter.firebasestorage.app",
+            messagingSenderId: "834046046644",
+            appId: "1:834046046644:web:9f0288c2bd9871b5be82e1",
+            measurementId: "G-NVCZZJTMSS"
+        };
+
+        // Initialize Firebase
+        try {
+            window.firebaseApp = initializeApp(firebaseConfig);
+            window.firebaseDb = getDatabase(window.firebaseApp);
+            console.log('🔥 Firebase initialized successfully');
+        } catch (error) {
+            console.error('Firebase initialization failed:', error);
+            window.firebaseApp = null;
+            window.firebaseDb = null;
+        }
+    </script>
+
     <script>
         // MQTT connection settings
         const MQTT_HOST = 'wss://0c1bf62a21e94682adf340b8a2d3fe04.s1.eu.hivemq.cloud:8884/mqtt';
@@ -501,92 +540,108 @@
         const COUNTER_TOPIC = 'pierre/global/flash_counter';
 
         // Store recent flash events (keep last 20)
-        let recentFlashEvents = [];
+        const recentFlashEvents = [];
 
-        // Server API URL for persistent storage
-        const API_URL = window.location.hostname === 'localhost'
-            ? 'http://localhost:3000/api/counter'
-            : '/api/counter';
-
-        // Load flash counter from server
+        // Load flash counter from Firebase (primary) and HiveMQ (fallback)
         async function loadFlashCounter() {
-            console.log('📊 Loading flash counter from server...');
-
             try {
-                // Load from server API
-                const response = await fetch(API_URL + '?t=' + Date.now());
+                // Try Firebase first (long-term storage)
+                if (window.firebaseDb) {
+                    const counterRef = window.firebaseRef(window.firebaseDb, 'flash_counter');
 
-                if (response.ok) {
-                    const data = await response.json();
+                    // One-time read from Firebase
+                    const snapshot = await window.firebaseGet(counterRef);
+                    if (snapshot.exists()) {
+                        const data = snapshot.val();
+                        flashCounter.totalFlashes = data.totalFlashes || 0;
+                        flashCounter.devices = data.devices || {};
+                        flashCounter.sessions = new Set(data.sessions || []);
 
-                    flashCounter.totalFlashes = data.totalFlashes || 0;
-                    flashCounter.devices = data.devices || {};
-                    flashCounter.sessions = new Set(data.sessions || []);
+                        // Check if it's a new day
+                        const today = new Date().toDateString();
+                        if (data.todayDate === today) {
+                            flashCounter.todayFlashes = data.todayFlashes || 0;
+                        } else {
+                            flashCounter.todayFlashes = 0;
+                            flashCounter.todayDate = today;
+                        }
 
-                    // Check if it's a new day
-                    const today = new Date().toDateString();
-                    if (data.todayDate === today) {
-                        flashCounter.todayFlashes = data.todayFlashes || 0;
+                        console.log(`🔥 Loaded from Firebase: ${flashCounter.totalFlashes} total flashes`);
+                        updateFlashCounterUI();
+
+                        // Also sync to HiveMQ for real-time updates
+                        saveToHiveMQ();
                     } else {
-                        flashCounter.todayFlashes = 0;
-                        flashCounter.todayDate = today;
+                        console.log('📊 No data in Firebase, will check HiveMQ...');
                     }
-
-                    if (data.recentEvents && Array.isArray(data.recentEvents)) {
-                        recentFlashEvents = data.recentEvents;
-                    }
-
-                    console.log('✅ Loaded from server:', flashCounter.totalFlashes);
-                    updateFlashCounterUI();
-                    updateFlashEventsUI();
-                } else {
-                    console.error('Failed to load from server:', response.status);
-                    // Initialize with empty counter
-                    updateFlashCounterUI();
-                    updateFlashEventsUI();
                 }
             } catch (error) {
-                console.error('Failed to load from server:', error);
-                // Initialize with empty counter
-                updateFlashCounterUI();
-                updateFlashEventsUI();
+                console.error('⚠️ Firebase load failed:', error);
+            }
+
+            // HiveMQ will load automatically when connected (see MQTT message handler)
+        }
+
+        // Save flash counter to BOTH Firebase and HiveMQ
+        async function saveFlashCounter() {
+            if (isUpdatingCounter) {
+                console.log('⏳ Update already in progress...');
+                return;
+            }
+
+            isUpdatingCounter = true;
+
+            try {
+                const data = {
+                    totalFlashes: flashCounter.totalFlashes,
+                    devices: flashCounter.devices,
+                    sessions: Array.from(flashCounter.sessions).slice(-1000),
+                    todayFlashes: flashCounter.todayFlashes,
+                    todayDate: flashCounter.todayDate,
+                    lastUpdate: new Date().toISOString()
+                };
+
+                // Save to Firebase for long-term storage
+                if (window.firebaseDb) {
+                    try {
+                        const counterRef = window.firebaseRef(window.firebaseDb, 'flash_counter');
+                        await window.firebaseSet(counterRef, data);
+                        console.log('💾 Saved to Firebase');
+                    } catch (fbError) {
+                        console.error('Firebase save error:', fbError);
+                    }
+                }
+
+                // Save to HiveMQ for real-time sync
+                saveToHiveMQ();
+
+            } catch (error) {
+                console.error('❌ Failed to save counter:', error);
+            } finally {
+                isUpdatingCounter = false;
             }
         }
 
-        // Save flash counter - trigger GitHub Actions to update Gist
-        function saveFlashCounter() {
-            const data = {
-                totalFlashes: flashCounter.totalFlashes,
-                devices: flashCounter.devices,
-                sessions: Array.from(flashCounter.sessions).slice(-1000), // Keep last 1000 sessions
-                todayFlashes: flashCounter.todayFlashes,
-                todayDate: flashCounter.todayDate,
-                recentEvents: recentFlashEvents, // Save recent flash events
-                lastUpdate: new Date().toISOString()
-            };
+        // Helper function to save to HiveMQ only
+        function saveToHiveMQ() {
+            if (client && client.connected) {
+                const data = {
+                    totalFlashes: flashCounter.totalFlashes,
+                    devices: flashCounter.devices,
+                    sessions: Array.from(flashCounter.sessions).slice(-1000),
+                    todayFlashes: flashCounter.todayFlashes,
+                    todayDate: flashCounter.todayDate,
+                    lastUpdate: new Date().toISOString()
+                };
 
-            // Send to HiveMQ which will trigger GitHub Actions to update Gist
-            if (client && client.connected && !isUpdatingCounter) {
-                // Publish to a special topic that GitHub Actions monitors
-                client.publish('pierre/flash/update', JSON.stringify(data), {
-                    qos: 2  // Use QoS 2 for guaranteed delivery
-                }, (err) => {
-                    if (err) {
-                        console.error('❌ Failed to trigger update:', err);
-                    } else {
-                        console.log('📤 Update triggered for GitHub Gist');
-                    }
-                });
-            }
-
-            // Also keep using the retained message for immediate sync
-            if (client && client.connected && !isUpdatingCounter) {
                 client.publish(COUNTER_TOPIC, JSON.stringify(data), {
                     retain: true,
-                    qos: 2
+                    qos: 1
                 }, (err) => {
-                    if (!err) {
-                        console.log('☁️ Saved to HiveMQ for immediate sync');
+                    if (err) {
+                        console.error('HiveMQ save error:', err);
+                    } else {
+                        console.log('☁️ Saved to HiveMQ');
                     }
                 });
             }
@@ -886,44 +941,33 @@
             const parts = topic.split('/');
             if (parts.length < 3 || parts[0] !== 'pierre') return;
 
-            // Handle global flash counter topic
+            // Handle global flash counter topic from HiveMQ
             if (topic === COUNTER_TOPIC) {
                 try {
                     const data = JSON.parse(message);
 
-                    // Only update if cloud data has equal or more flashes (sync with other devices)
-                    if (data.totalFlashes >= flashCounter.totalFlashes) {
+                    // Only update if HiveMQ has newer data
+                    if (data.totalFlashes > flashCounter.totalFlashes) {
                         flashCounter.totalFlashes = data.totalFlashes || 0;
                         flashCounter.devices = data.devices || {};
                         flashCounter.sessions = new Set(data.sessions || []);
 
-                        // Load recent flash events if available
-                        if (data.recentEvents && Array.isArray(data.recentEvents)) {
-                            recentFlashEvents = data.recentEvents;
-                            console.log(`📋 Synced ${recentFlashEvents.length} recent flash events from cloud`);
-                            updateFlashEventsUI();
-                        }
-
-                        // Check if it's a new day
                         const today = new Date().toDateString();
                         if (data.todayDate === today) {
                             flashCounter.todayFlashes = data.todayFlashes || 0;
                         } else {
-                            // It's a new day, reset today's count
                             flashCounter.todayFlashes = 0;
                             flashCounter.todayDate = today;
                         }
 
-                        console.log(`☁️ Synced counter from cloud: ${flashCounter.totalFlashes} total flashes`);
+                        console.log(`☁️ Updated from HiveMQ: ${flashCounter.totalFlashes} total flashes`);
                         updateFlashCounterUI();
 
-                        // No need for localStorage - server handles persistence
-                        // localStorage removed as requested
-                    } else {
-                        console.log(`⏭️ Skipping cloud sync - local data is newer (local: ${flashCounter.totalFlashes}, cloud: ${data.totalFlashes})`);
+                        // Also save to Firebase for persistence
+                        saveFlashCounter();
                     }
                 } catch (e) {
-                    console.error('Failed to parse counter data:', e);
+                    console.error('Failed to parse MQTT counter:', e);
                 }
                 return;
             }
@@ -940,9 +984,7 @@
 
                     try {
                         // Parse flash event data
-                        console.log('📝 Raw message:', message);
                         const eventData = JSON.parse(message);
-                        console.log('📦 Parsed event data:', eventData);
 
                         flashCounter.totalFlashes++;
 
@@ -1011,8 +1053,8 @@
                             counterElem.style.transform = 'scale(1)';
                         }, 500);
 
-                        // Server automatically saves the data, no need to call saveFlashCounter
-                        // saveFlashCounter();
+                        // Save to cloud
+                        saveFlashCounter();
 
                     } catch (e) {
                         console.error('Failed to parse flash event:', e);
@@ -1227,8 +1269,7 @@
                     password: PASSWORD,
                     clientId: `pierre-monitor-${Math.random().toString(16).substr(2, 8)}`,
                     keepalive: 30,
-                    clean: true,  // Use clean session
-                    reconnectPeriod: 1000
+                    clean: true
                 });
 
                 client.on('connect', () => {
@@ -1241,28 +1282,6 @@
                             console.error('❌ Subscription error:', err);
                         } else {
                             console.log('📡 Subscribed to pierre/#');
-
-                            // IMPORTANT: Force request the retained message by resubscribing to counter topic
-                            setTimeout(() => {
-                                console.log('🔄 Requesting retained counter...');
-                                client.subscribe(COUNTER_TOPIC, {qos: 2}, (err) => {
-                                    if (!err) {
-                                        console.log('📥 Subscribed to counter topic for retained message');
-
-                                        // If no retained message received within 3 seconds, initialize with empty counter
-                                        setTimeout(() => {
-                                            if (flashCounter.totalFlashes === 0 && !isUpdatingCounter) {
-                                                console.log('⚠️ No retained message received, checking if we need to initialize...');
-                                                // Don't overwrite if we already have data
-                                                if (flashCounter.totalFlashes === 0) {
-                                                    console.log('📝 Counter will be initialized by server when first event arrives');
-                                                    // saveFlashCounter();
-                                                }
-                                            }
-                                        }, 3000);
-                                    }
-                                });
-                            }, 500);
                         }
                     });
                 });
@@ -1304,11 +1323,14 @@
             // Add initial data point
             updateChart();
 
-            // Load flash counter from server immediately
-            loadFlashCounter();
-
             // Initialize flash counter UI (data will load from cloud when connected)
             updateFlashCounterUI();
+
+            // Load flash counter from Firebase (primary source)
+            console.log('🔥 Loading flash counter from Firebase...');
+            setTimeout(() => {
+                loadFlashCounter();
+            }, 1000); // Wait a bit for Firebase to initialize
 
             // Setup reset button
             document.getElementById('resetChart').addEventListener('click', resetChart);
