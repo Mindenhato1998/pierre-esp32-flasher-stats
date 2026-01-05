@@ -277,35 +277,43 @@
         }
 
         .flash-counter-stats {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-            gap: 1rem;
             margin-top: 2rem;
         }
 
-        .flash-stat-item {
+        .device-flash-list {
             background: rgba(255, 255, 255, 0.05);
             padding: 1rem;
             border-radius: 8px;
             border: 1px solid rgba(255, 255, 255, 0.1);
         }
 
-        .flash-stat-label {
-            color: #888;
-            font-size: 0.9rem;
-            margin-bottom: 0.5rem;
+        .device-flash-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 0.75rem;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
         }
 
-        .flash-stat-value {
+        .device-flash-item:last-child {
+            border-bottom: none;
+        }
+
+        .device-flash-name {
             color: #fff;
-            font-size: 1.5rem;
+            font-size: 1rem;
+        }
+
+        .device-flash-count {
+            color: #4fc3f7;
+            font-size: 1.1rem;
             font-weight: 600;
         }
 
-        .flash-device-name {
-            color: #aaa;
-            font-size: 0.9rem;
-            margin-top: 0.25rem;
+        .device-list-empty {
+            color: #888;
+            text-align: center;
+            padding: 2rem;
         }
 
         /* Recent Flash Events */
@@ -441,18 +449,29 @@
             <p style="color: #888; margin-top: 0.5rem;">Total ESP32 devices flashed worldwide</p>
 
             <div class="flash-counter-stats">
-                <div class="flash-stat-item">
-                    <div class="flash-stat-label">Unique Devices</div>
-                    <div class="flash-stat-value" id="uniqueDevicesCount">0</div>
+                <div class="device-flash-list" id="deviceFlashList">
+                    <!-- Device list will be populated here -->
                 </div>
-                <div class="flash-stat-item">
-                    <div class="flash-stat-label">Today's Flashes</div>
-                    <div class="flash-stat-value" id="todayFlashCount">0</div>
+            </div>
+        </div>
+
+        <!-- All-Time Device List -->
+        <div class="flash-counter-section" style="margin-top: 2rem;">
+            <h2 class="flash-counter-title">📱 All-Time Connected Devices</h2>
+            <p style="color: #888; margin-bottom: 1rem;">Every mobile device that has ever connected</p>
+
+            <div id="allTimeDeviceList" style="max-height: 400px; overflow-y: auto; text-align: left; margin-top: 1rem; padding: 1rem; background: rgba(0,0,0,0.5); border-radius: 8px;">
+                <div style="color: #666; text-align: center; padding: 2rem;">Loading device history...</div>
+            </div>
+
+            <div style="margin-top: 1rem; display: flex; justify-content: space-between; align-items: center; padding: 1rem; background: rgba(0,0,0,0.3); border-radius: 8px;">
+                <div style="text-align: left;">
+                    <div style="color: #888; font-size: 0.9rem;">Total Devices</div>
+                    <div style="color: #fff; font-size: 1.5rem; font-weight: bold;" id="totalDeviceCount">0</div>
                 </div>
-                <div class="flash-stat-item">
-                    <div class="flash-stat-label">Top Device</div>
-                    <div class="flash-stat-value" id="topDeviceCount">-</div>
-                    <div class="flash-device-name" id="topDeviceName"></div>
+                <div style="text-align: right;">
+                    <div style="color: #888; font-size: 0.9rem;">Last Update</div>
+                    <div style="color: #fff; font-size: 0.9rem;" id="deviceListLastUpdate">Never</div>
                 </div>
             </div>
         </div>
@@ -470,45 +489,6 @@
 
     <script src="https://unpkg.com/mqtt/dist/mqtt.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-
-    <!-- Firebase SDK -->
-    <script type="module">
-        import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js';
-        import { getDatabase, ref, set, get, onValue, serverTimestamp } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js';
-
-        // Make Firebase functions globally available
-        window.firebaseApp = null;
-        window.firebaseDb = null;
-        window.firebaseRef = ref;
-        window.firebaseSet = set;
-        window.firebaseGet = get;
-        window.firebaseOnValue = onValue;
-        window.firebaseServerTimestamp = serverTimestamp;
-
-        // Firebase configuration - Pierre Flasher Counter
-        const firebaseConfig = {
-            apiKey: "AIzaSyCBnwNg007wDtwMsu525oCrwNrCxYZRNKk",
-            authDomain: "pierre-flasher-counter.firebaseapp.com",
-            databaseURL: "https://pierre-flasher-counter-default-rtdb.firebaseio.com",
-            projectId: "pierre-flasher-counter",
-            storageBucket: "pierre-flasher-counter.firebasestorage.app",
-            messagingSenderId: "834046046644",
-            appId: "1:834046046644:web:9f0288c2bd9871b5be82e1",
-            measurementId: "G-NVCZZJTMSS"
-        };
-
-        // Initialize Firebase
-        try {
-            window.firebaseApp = initializeApp(firebaseConfig);
-            window.firebaseDb = getDatabase(window.firebaseApp);
-            console.log('🔥 Firebase initialized successfully');
-        } catch (error) {
-            console.error('Firebase initialization failed:', error);
-            window.firebaseApp = null;
-            window.firebaseDb = null;
-        }
-    </script>
-
     <script>
         // MQTT connection settings
         const MQTT_HOST = 'wss://0c1bf62a21e94682adf340b8a2d3fe04.s1.eu.hivemq.cloud:8884/mqtt';
@@ -533,26 +513,144 @@
             devices: {},  // {deviceId: {name, count, lastSeen}}
             sessions: new Set(),  // Track unique session IDs
             todayFlashes: 0,
-            todayDate: new Date().toDateString()
+            todayDate: new Date().toDateString(),
+            lastUpdate: null
         };
 
         let isUpdatingCounter = false;  // Prevent race conditions
         const COUNTER_TOPIC = 'pierre/global/flash_counter';
 
         // Store recent flash events (keep last 20)
-        const recentFlashEvents = [];
+        let recentFlashEvents = [];
 
-        // Load flash counter from Firebase (primary) and HiveMQ (fallback)
-        async function loadFlashCounter() {
+        // All-time device list - stores every device that ever connected
+        let allTimeDevices = {};  // {deviceId: {name, model, firstSeen, lastSeen, connectCount}}
+        const ALL_TIME_DEVICES_PATH = '/all_time_devices.json';
+
+        // Firebase Configuration for persistent storage
+        const FIREBASE_URL = 'https://pierre-flasher-counter-default-rtdb.firebaseio.com';
+        const COUNTER_PATH = '/counter.json';
+
+        // Load all-time device list from Firebase
+        async function loadAllTimeDevices() {
             try {
-                // Try Firebase first (long-term storage)
-                if (window.firebaseDb) {
-                    const counterRef = window.firebaseRef(window.firebaseDb, 'flash_counter');
+                const response = await fetch(FIREBASE_URL + ALL_TIME_DEVICES_PATH);
+                if (response.ok) {
+                    const data = await response.json();
+                    if (data) {
+                        allTimeDevices = data;
+                        console.log(`📱 Loaded ${Object.keys(allTimeDevices).length} devices from Firebase`);
+                        updateAllTimeDeviceListUI();
+                    }
+                }
+            } catch (error) {
+                console.error('Failed to load device list from Firebase:', error);
+            }
+        }
 
-                    // One-time read from Firebase
-                    const snapshot = await window.firebaseGet(counterRef);
-                    if (snapshot.exists()) {
-                        const data = snapshot.val();
+        // Save all-time device list to Firebase
+        async function saveAllTimeDevices() {
+            try {
+                const response = await fetch(FIREBASE_URL + ALL_TIME_DEVICES_PATH, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(allTimeDevices)
+                });
+                if (response.ok) {
+                    console.log('💾 Saved device list to Firebase');
+                }
+            } catch (error) {
+                console.error('Failed to save device list to Firebase:', error);
+            }
+        }
+
+        // Update all-time device list UI
+        function updateAllTimeDeviceListUI() {
+            const listElement = document.getElementById('allTimeDeviceList');
+            const countElement = document.getElementById('totalDeviceCount');
+            const updateElement = document.getElementById('deviceListLastUpdate');
+
+            const deviceCount = Object.keys(allTimeDevices).length;
+            countElement.textContent = deviceCount;
+            updateElement.textContent = new Date().toLocaleString();
+
+            if (deviceCount === 0) {
+                listElement.innerHTML = '<div style="color: #666; text-align: center; padding: 2rem;">No devices have connected yet</div>';
+                return;
+            }
+
+            // Sort devices by last seen (most recent first)
+            const sortedDevices = Object.entries(allTimeDevices)
+                .sort((a, b) => (b[1].lastSeen || 0) - (a[1].lastSeen || 0));
+
+            let html = '<div style="display: grid; gap: 0.5rem;">';
+
+            sortedDevices.forEach(([deviceId, device]) => {
+                const isOnline = connectedDevices.has(deviceId);
+                const statusColor = isOnline ? '#00ff88' : '#666';
+                const statusText = isOnline ? '🟢 Online' : '⚫ Offline';
+
+                const firstSeenDate = device.firstSeen ? new Date(device.firstSeen).toLocaleDateString() : 'Unknown';
+                const lastSeenDate = device.lastSeen ? new Date(device.lastSeen).toLocaleDateString() : 'Unknown';
+                const lastSeenTime = device.lastSeen ? new Date(device.lastSeen).toLocaleTimeString() : '';
+
+                html += `
+                    <div style="padding: 1rem; background: rgba(255,255,255,0.03); border-radius: 8px; border-left: 3px solid ${statusColor};">
+                        <div style="display: flex; justify-content: space-between; align-items: start;">
+                            <div>
+                                <div style="font-weight: bold; color: #fff; font-size: 1.1rem;">${device.name || 'Unknown Device'}</div>
+                                <div style="color: #888; font-size: 0.9rem; margin-top: 0.25rem;">
+                                    ${device.model || 'Unknown Model'} • ID: ${deviceId.substring(0, 8)}
+                                </div>
+                                <div style="color: #666; font-size: 0.85rem; margin-top: 0.5rem;">
+                                    First seen: ${firstSeenDate} • Last: ${lastSeenDate} ${lastSeenTime}
+                                </div>
+                                <div style="color: #666; font-size: 0.85rem;">
+                                    Connections: ${device.connectCount || 1}
+                                </div>
+                            </div>
+                            <div style="text-align: right;">
+                                <div style="font-size: 0.9rem;">${statusText}</div>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            });
+
+            html += '</div>';
+            listElement.innerHTML = html;
+        }
+
+        // Extract model from device name
+        function extractModelFromName(deviceName) {
+            if (!deviceName) return 'Unknown Model';
+            // Common patterns: "Name's Model", "Model", etc.
+            const patterns = [
+                /^.*?'s\s+(.+)$/i,  // "Bence's Redmi Note 10 Pro" -> "Redmi Note 10 Pro"
+                /^(.+?)\s+\(.+\)$/,  // "Device (ID)" -> "Device"
+                /^(.+)$/             // Just return as is
+            ];
+            for (const pattern of patterns) {
+                const match = deviceName.match(pattern);
+                if (match) {
+                    return match[1].trim();
+                }
+            }
+            return deviceName;
+        }
+
+        // Load flash counter from Firebase
+        async function loadFlashCounter() {
+            console.log('📊 Loading flash counter from Firebase...');
+
+            try {
+                // Load from Firebase
+                const response = await fetch(FIREBASE_URL + COUNTER_PATH);
+
+                if (response.ok) {
+                    const data = await response.json();
+
+                    if (data) {
                         flashCounter.totalFlashes = data.totalFlashes || 0;
                         flashCounter.devices = data.devices || {};
                         flashCounter.sessions = new Set(data.sessions || []);
@@ -566,82 +664,118 @@
                             flashCounter.todayDate = today;
                         }
 
-                        console.log(`🔥 Loaded from Firebase: ${flashCounter.totalFlashes} total flashes`);
-                        updateFlashCounterUI();
+                        if (data.recentEvents && Array.isArray(data.recentEvents)) {
+                            recentFlashEvents = data.recentEvents;
+                            console.log(`📋 Loaded ${recentFlashEvents.length} recent flash events from Firebase`);
+                        }
 
-                        // Also sync to HiveMQ for real-time updates
-                        saveToHiveMQ();
+                        console.log('☁️ Loaded from Firebase:', flashCounter.totalFlashes);
+                        updateFlashCounterUI();
+                        updateFlashEventsUI();
                     } else {
-                        console.log('📊 No data in Firebase, will check HiveMQ...');
+                        // Initialize empty counter
+                        console.log('No Firebase data, initializing...');
+                        await saveFlashCounterToFirebase();
                     }
+                } else {
+                    console.error('Failed to load from Firebase:', response.status);
+                    updateFlashCounterUI();
+                    updateFlashEventsUI();
                 }
             } catch (error) {
-                console.error('⚠️ Firebase load failed:', error);
+                console.error('Failed to load from Firebase:', error);
+                updateFlashCounterUI();
+                updateFlashEventsUI();
             }
-
-            // HiveMQ will load automatically when connected (see MQTT message handler)
         }
 
-        // Save flash counter to BOTH Firebase and HiveMQ
-        async function saveFlashCounter() {
-            if (isUpdatingCounter) {
-                console.log('⏳ Update already in progress...');
-                return;
+        // Save flash counter to Firebase (preserves existing data if counter values are 0)
+        async function saveFlashCounterToFirebase() {
+            // If counter values are 0, try to load existing data first
+            if (flashCounter.totalFlashes === 0 && recentFlashEvents.length === 0) {
+                try {
+                    const loadResponse = await fetch(FIREBASE_URL + COUNTER_PATH);
+                    if (loadResponse.ok) {
+                        const existingData = await loadResponse.json();
+                        if (existingData && existingData.totalFlashes > 0) {
+                            // Preserve existing data
+                            flashCounter.totalFlashes = existingData.totalFlashes || 0;
+                            flashCounter.devices = existingData.devices || {};
+                            flashCounter.sessions = new Set(existingData.sessions || []);
+                            flashCounter.todayFlashes = existingData.todayFlashes || 0;
+                            flashCounter.todayDate = existingData.todayDate || new Date().toDateString();
+                            if (existingData.recentEvents && Array.isArray(existingData.recentEvents)) {
+                                recentFlashEvents = existingData.recentEvents;
+                            }
+                            console.log('☁️ Preserved existing Firebase data during save');
+                            updateFlashCounterUI();
+                            updateFlashEventsUI();
+                        }
+                    }
+                } catch (error) {
+                    console.error('Failed to preserve existing data:', error);
+                }
             }
 
-            isUpdatingCounter = true;
+            const data = {
+                totalFlashes: flashCounter.totalFlashes,
+                devices: flashCounter.devices,
+                sessions: Array.from(flashCounter.sessions).slice(-100),
+                todayFlashes: flashCounter.todayFlashes,
+                todayDate: flashCounter.todayDate,
+                recentEvents: recentFlashEvents,
+                lastUpdate: new Date().toISOString()
+            };
 
             try {
-                const data = {
-                    totalFlashes: flashCounter.totalFlashes,
-                    devices: flashCounter.devices,
-                    sessions: Array.from(flashCounter.sessions).slice(-1000),
-                    todayFlashes: flashCounter.todayFlashes,
-                    todayDate: flashCounter.todayDate,
-                    lastUpdate: new Date().toISOString()
-                };
+                const response = await fetch(FIREBASE_URL + COUNTER_PATH, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(data)
+                });
 
-                // Save to Firebase for long-term storage
-                if (window.firebaseDb) {
-                    try {
-                        const counterRef = window.firebaseRef(window.firebaseDb, 'flash_counter');
-                        await window.firebaseSet(counterRef, data);
-                        console.log('💾 Saved to Firebase');
-                    } catch (fbError) {
-                        console.error('Firebase save error:', fbError);
-                    }
+                if (response.ok) {
+                    console.log('☁️ Saved to Firebase');
                 }
-
-                // Save to HiveMQ for real-time sync
-                saveToHiveMQ();
-
             } catch (error) {
-                console.error('❌ Failed to save counter:', error);
-            } finally {
-                isUpdatingCounter = false;
+                console.error('Firebase save error:', error);
             }
         }
 
-        // Helper function to save to HiveMQ only
-        function saveToHiveMQ() {
-            if (client && client.connected) {
-                const data = {
-                    totalFlashes: flashCounter.totalFlashes,
-                    devices: flashCounter.devices,
-                    sessions: Array.from(flashCounter.sessions).slice(-1000),
-                    todayFlashes: flashCounter.todayFlashes,
-                    todayDate: flashCounter.todayDate,
-                    lastUpdate: new Date().toISOString()
-                };
+        // Save flash counter - trigger GitHub Actions to update Gist
+        function saveFlashCounter() {
+            const data = {
+                totalFlashes: flashCounter.totalFlashes,
+                devices: flashCounter.devices,
+                sessions: Array.from(flashCounter.sessions).slice(-1000), // Keep last 1000 sessions
+                todayFlashes: flashCounter.todayFlashes,
+                todayDate: flashCounter.todayDate,
+                recentEvents: recentFlashEvents, // Save recent flash events
+                lastUpdate: new Date().toISOString()
+            };
 
-                client.publish(COUNTER_TOPIC, JSON.stringify(data), {
-                    retain: true,
-                    qos: 1
+            // Send to HiveMQ which will trigger GitHub Actions to update Gist
+            if (client && client.connected && !isUpdatingCounter) {
+                // Publish to a special topic that GitHub Actions monitors
+                client.publish('pierre/flash/update', JSON.stringify(data), {
+                    qos: 2  // Use QoS 2 for guaranteed delivery
                 }, (err) => {
                     if (err) {
-                        console.error('HiveMQ save error:', err);
+                        console.error('❌ Failed to trigger update:', err);
                     } else {
-                        console.log('☁️ Saved to HiveMQ');
+                        console.log('📤 Update triggered for GitHub Gist');
+                    }
+                });
+            }
+
+            // Also keep using the retained message for immediate sync
+            if (client && client.connected && !isUpdatingCounter) {
+                client.publish(COUNTER_TOPIC, JSON.stringify(data), {
+                    retain: true,
+                    qos: 2
+                }, (err) => {
+                    if (!err) {
+                        console.log('☁️ Saved to HiveMQ for immediate sync');
                     }
                 });
             }
@@ -650,25 +784,58 @@
         // Update flash counter UI
         function updateFlashCounterUI() {
             document.getElementById('flashCounterNumber').textContent = flashCounter.totalFlashes;
-            document.getElementById('uniqueDevicesCount').textContent = Object.keys(flashCounter.devices).length;
-            document.getElementById('todayFlashCount').textContent = flashCounter.todayFlashes;
 
-            // Find top device
-            let topDevice = null;
-            let maxFlashes = 0;
+            // Update device list
+            const deviceList = document.getElementById('deviceFlashList');
+
+            // Group devices by name and sum their flash counts
+            const devicesByName = {};
             Object.entries(flashCounter.devices).forEach(([id, device]) => {
-                if (device.count > maxFlashes) {
-                    maxFlashes = device.count;
-                    topDevice = device;
+                const name = device.name || id;
+                if (!devicesByName[name]) {
+                    devicesByName[name] = {
+                        name: name,
+                        count: 0,
+                        ids: []
+                    };
                 }
+                devicesByName[name].count += device.count;
+                devicesByName[name].ids.push(id);
             });
 
-            if (topDevice) {
-                document.getElementById('topDeviceCount').textContent = topDevice.count;
-                document.getElementById('topDeviceName').textContent = topDevice.name || 'Unknown';
+            // Convert to array and sort by count (descending)
+            const devices = Object.values(devicesByName)
+                .sort((a, b) => b.count - a.count);
+
+            if (devices.length === 0) {
+                deviceList.innerHTML = '<div class="device-list-empty">No devices flashed yet</div>';
             } else {
-                document.getElementById('topDeviceCount').textContent = '-';
-                document.getElementById('topDeviceName').textContent = '';
+                // Clear and populate the list
+                deviceList.innerHTML = '';
+
+                // Add header with unique devices and today's flashes
+                const headerDiv = document.createElement('div');
+                headerDiv.className = 'device-flash-item';
+                headerDiv.style.borderBottom = '2px solid rgba(79, 195, 247, 0.3)';
+                headerDiv.style.marginBottom = '0.5rem';
+                headerDiv.innerHTML = `
+                    <div style="color: #888;">
+                        <span>Unique Devices: <strong style="color: #4fc3f7;">${devices.length}</strong></span>
+                        <span style="margin-left: 2rem;">Today: <strong style="color: #4fc3f7;">${flashCounter.todayFlashes}</strong></span>
+                    </div>
+                `;
+                deviceList.appendChild(headerDiv);
+
+                // Add each device (now grouped by name)
+                devices.forEach(device => {
+                    const deviceDiv = document.createElement('div');
+                    deviceDiv.className = 'device-flash-item';
+                    deviceDiv.innerHTML = `
+                        <div class="device-flash-name">${device.name}</div>
+                        <div class="device-flash-count">${device.count} flash${device.count !== 1 ? 'es' : ''}</div>
+                    `;
+                    deviceList.appendChild(deviceDiv);
+                });
             }
         }
 
@@ -694,24 +861,30 @@
                 const firmwareClass = event.firmwareType === 'custom' ? 'firmware-custom' : 'firmware-production';
                 const firmwareLabel = event.firmwareType === 'custom' ? 'CUSTOM' : 'PRODUCTION';
 
-                // Format flash size
-                const sizeKB = (event.flashSize / 1024).toFixed(0);
-                const sizeMB = (event.flashSize / (1024 * 1024)).toFixed(2);
-                const sizeStr = event.flashSize > 1048576 ? `${sizeMB} MB` : `${sizeKB} KB`;
+                // Format flash size - handle null/undefined values
+                let sizeStr = 'Unknown';
+                if (event.flashSize && !isNaN(event.flashSize)) {
+                    const sizeKB = (event.flashSize / 1024).toFixed(0);
+                    const sizeMB = (event.flashSize / (1024 * 1024)).toFixed(2);
+                    sizeStr = event.flashSize > 1048576 ? `${sizeMB} MB` : `${sizeKB} KB`;
+                }
 
                 // Format time
                 const time = new Date(event.timestamp);
                 const timeStr = time.toLocaleTimeString();
                 const dateStr = time.toLocaleDateString();
 
-                // Format duration
-                const durationSec = (event.flashTime / 1000).toFixed(1);
+                // Format duration - handle null/undefined values
+                let durationStr = 'Unknown';
+                if (event.flashTime && !isNaN(event.flashTime)) {
+                    durationStr = `${(event.flashTime / 1000).toFixed(1)}s`;
+                }
 
                 eventDiv.innerHTML = `
                     <div class="flash-event-left">
                         <div class="flash-event-device">${event.deviceName || event.deviceId}</div>
                         <div class="flash-event-details">
-                            Size: ${sizeStr} | Duration: ${durationSec}s | Session: ${event.sessionId.slice(0, 8)}
+                            Size: ${sizeStr} | Duration: ${durationStr}${event.sessionId ? ` | Session: ${event.sessionId.slice(0, 8)}` : ''}
                         </div>
                     </div>
                     <div class="flash-event-right">
@@ -941,33 +1114,74 @@
             const parts = topic.split('/');
             if (parts.length < 3 || parts[0] !== 'pierre') return;
 
-            // Handle global flash counter topic from HiveMQ
+            // Handle flashcounter state topic (Firebase backup from MQTT)
+            if (topic === 'pierre/flashcounter/state') {
+                try {
+                    const data = JSON.parse(message);
+
+                    // Use MQTT backup if Firebase is not available or data is newer
+                    if (!flashCounter.lastUpdate ||
+                        (data.lastUpdate && new Date(data.lastUpdate) > new Date(flashCounter.lastUpdate))) {
+                        console.log('📡 Using MQTT backup data');
+
+                        flashCounter.totalFlashes = data.totalFlashes || 0;
+                        flashCounter.devices = data.devices || {};
+                        flashCounter.todayFlashes = data.todayFlashes || 0;
+                        flashCounter.todayDate = data.todayDate || new Date().toDateString();
+
+                        if (data.recentEvents) {
+                            recentFlashEvents = data.recentEvents;
+                        }
+
+                        flashCounter.lastUpdate = data.lastUpdate;
+
+                        updateFlashCounterUI();
+                        updateFlashEventsUI();
+                    }
+                } catch (e) {
+                    console.error('Error parsing flashcounter state:', e);
+                }
+                return;
+            }
+
+            // Handle global flash counter topic
             if (topic === COUNTER_TOPIC) {
                 try {
                     const data = JSON.parse(message);
 
-                    // Only update if HiveMQ has newer data
-                    if (data.totalFlashes > flashCounter.totalFlashes) {
+                    // Only update if cloud data has equal or more flashes (sync with other devices)
+                    if (data.totalFlashes >= flashCounter.totalFlashes) {
                         flashCounter.totalFlashes = data.totalFlashes || 0;
                         flashCounter.devices = data.devices || {};
                         flashCounter.sessions = new Set(data.sessions || []);
 
+                        // Load recent flash events if available
+                        if (data.recentEvents && Array.isArray(data.recentEvents)) {
+                            recentFlashEvents = data.recentEvents;
+                            console.log(`📋 Synced ${recentFlashEvents.length} recent flash events from cloud`);
+                            updateFlashEventsUI();
+                        }
+
+                        // Check if it's a new day
                         const today = new Date().toDateString();
                         if (data.todayDate === today) {
                             flashCounter.todayFlashes = data.todayFlashes || 0;
                         } else {
+                            // It's a new day, reset today's count
                             flashCounter.todayFlashes = 0;
                             flashCounter.todayDate = today;
                         }
 
-                        console.log(`☁️ Updated from HiveMQ: ${flashCounter.totalFlashes} total flashes`);
+                        console.log(`☁️ Synced counter from cloud: ${flashCounter.totalFlashes} total flashes`);
                         updateFlashCounterUI();
 
-                        // Also save to Firebase for persistence
-                        saveFlashCounter();
+                        // No need for localStorage - server handles persistence
+                        // localStorage removed as requested
+                    } else {
+                        console.log(`⏭️ Skipping cloud sync - local data is newer (local: ${flashCounter.totalFlashes}, cloud: ${data.totalFlashes})`);
                     }
                 } catch (e) {
-                    console.error('Failed to parse MQTT counter:', e);
+                    console.error('Failed to parse counter data:', e);
                 }
                 return;
             }
@@ -984,7 +1198,9 @@
 
                     try {
                         // Parse flash event data
+                        console.log('📝 Raw message:', message);
                         const eventData = JSON.parse(message);
+                        console.log('📦 Parsed event data:', eventData);
 
                         flashCounter.totalFlashes++;
 
@@ -1053,8 +1269,25 @@
                             counterElem.style.transform = 'scale(1)';
                         }, 500);
 
-                        // Save to cloud
-                        saveFlashCounter();
+                        // Save to Firebase
+                        saveFlashCounterToFirebase();
+
+                        // Also publish to MQTT retained for backup
+                        if (client && client.connected) {
+                            const backupData = {
+                                totalFlashes: flashCounter.totalFlashes,
+                                devices: flashCounter.devices,
+                                todayFlashes: flashCounter.todayFlashes,
+                                todayDate: flashCounter.todayDate,
+                                recentEvents: recentFlashEvents.slice(0, 10),
+                                lastUpdate: new Date().toISOString()
+                            };
+
+                            client.publish('pierre/flashcounter/state', JSON.stringify(backupData), {
+                                retain: true,
+                                qos: 1
+                            });
+                        }
 
                     } catch (e) {
                         console.error('Failed to parse flash event:', e);
@@ -1204,6 +1437,33 @@
                     topic: topic
                 });
 
+                // Update all-time device list
+                const deviceKey = deviceId.substring(0, 8);
+                if (!allTimeDevices[deviceKey]) {
+                    // New device - add to all-time list
+                    allTimeDevices[deviceKey] = {
+                        name: deviceName || deviceId,
+                        model: extractModelFromName(deviceName || deviceId),
+                        firstSeen: Date.now(),
+                        lastSeen: Date.now(),
+                        connectCount: 1
+                    };
+                    console.log(`📱 New device added to all-time list: ${deviceName || deviceId}`);
+                    saveAllTimeDevices();
+                } else {
+                    // Existing device - update last seen and possibly increment connect count
+                    const timeSinceLastSeen = Date.now() - (allTimeDevices[deviceKey].lastSeen || 0);
+                    // If more than 5 minutes since last seen, count as new connection
+                    if (timeSinceLastSeen > 300000) {
+                        allTimeDevices[deviceKey].connectCount = (allTimeDevices[deviceKey].connectCount || 1) + 1;
+                    }
+                    allTimeDevices[deviceKey].lastSeen = Date.now();
+                    allTimeDevices[deviceKey].name = deviceName || allTimeDevices[deviceKey].name;
+                }
+
+                // Update UI
+                updateAllTimeDeviceListUI();
+
                 if (isInitialLoad) {
                     console.log(`🕐 Initial load: ${deviceName || deviceId} marked as old (will be cleaned up soon)`);
                 }
@@ -1269,7 +1529,8 @@
                     password: PASSWORD,
                     clientId: `pierre-monitor-${Math.random().toString(16).substr(2, 8)}`,
                     keepalive: 30,
-                    clean: true
+                    clean: true,  // Use clean session
+                    reconnectPeriod: 1000
                 });
 
                 client.on('connect', () => {
@@ -1282,6 +1543,35 @@
                             console.error('❌ Subscription error:', err);
                         } else {
                             console.log('📡 Subscribed to pierre/#');
+
+                            // Subscribe to flashcounter state for backup
+                            client.subscribe('pierre/flashcounter/state', {qos: 1}, (err) => {
+                                if (!err) {
+                                    console.log('📡 Subscribed to flashcounter state');
+                                }
+                            });
+
+                            // IMPORTANT: Force request the retained message by resubscribing to counter topic
+                            setTimeout(() => {
+                                console.log('🔄 Requesting retained counter...');
+                                client.subscribe(COUNTER_TOPIC, {qos: 2}, (err) => {
+                                    if (!err) {
+                                        console.log('📥 Subscribed to counter topic for retained message');
+
+                                        // If no retained message received within 3 seconds, initialize with empty counter
+                                        setTimeout(() => {
+                                            if (flashCounter.totalFlashes === 0 && !isUpdatingCounter) {
+                                                console.log('⚠️ No retained message received, checking if we need to initialize...');
+                                                // Don't overwrite if we already have data
+                                                if (flashCounter.totalFlashes === 0) {
+                                                    console.log('📝 Counter will be initialized by server when first event arrives');
+                                                    // saveFlashCounter();
+                                                }
+                                            }
+                                        }, 3000);
+                                    }
+                                });
+                            }, 500);
                         }
                     });
                 });
@@ -1323,14 +1613,14 @@
             // Add initial data point
             updateChart();
 
+            // Load flash counter from server immediately
+            loadFlashCounter();
+
+            // Load all-time device list from Firebase
+            loadAllTimeDevices();
+
             // Initialize flash counter UI (data will load from cloud when connected)
             updateFlashCounterUI();
-
-            // Load flash counter from Firebase (primary source)
-            console.log('🔥 Loading flash counter from Firebase...');
-            setTimeout(() => {
-                loadFlashCounter();
-            }, 1000); // Wait a bit for Firebase to initialize
 
             // Setup reset button
             document.getElementById('resetChart').addEventListener('click', resetChart);
@@ -1349,6 +1639,15 @@
 
             // End initial load period after 10 seconds and clean up old devices
             setTimeout(initialCleanup, 10000);
+
+            // Periodically sync with Firebase (every 30 seconds)
+            setInterval(() => {
+                loadFlashCounter();
+                // Also save current state if we have data
+                if (flashCounter.totalFlashes > 0) {
+                    saveFlashCounterToFirebase();
+                }
+            }, 30000);
         });
     </script>
 </body>
