@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Pierre ESP32 - Live Device Status & Analytics</title>
+    <title>Pierre Flasher - Live Device Status & Analytics</title>
     <style>
         * {
             margin: 0;
@@ -16,19 +16,18 @@
             background: #0a0a0a;
             color: #ffffff;
             min-height: 100vh;
-            padding: 2rem;
+            padding: 1rem;
         }
 
         .container {
-            max-width: 800px;
-            margin: 0 auto;
+            width: 100%;
+            padding: 0 1rem;
         }
 
         .header {
             text-align: center;
-            margin-bottom: 3rem;
-            padding-bottom: 2rem;
-            border-bottom: 2px solid #333;
+            margin-bottom: 2rem;
+            padding-bottom: 1rem;
         }
 
         .header h1 {
@@ -158,7 +157,7 @@
         }
 
         .chart-section {
-            background: #111;
+            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
             border-radius: 12px;
             padding: 2rem;
             border: 1px solid #333;
@@ -203,10 +202,11 @@
 
         .chart-container {
             position: relative;
-            height: 200px;
-            background: #1a1a1a;
+            height: 250px;
+            background: rgba(0,0,0,0.5);
             border-radius: 8px;
             padding: 1rem;
+            width: 100%;
         }
 
         .connect-btn {
@@ -406,10 +406,30 @@
             padding: 2rem;
         }
 
-        /* Responsive layout for mobile devices */
-        @media (max-width: 768px) {
+        /* Responsive layout for tablets */
+        @media (max-width: 1024px) {
             .two-column-layout {
                 grid-template-columns: 1fr !important;
+                gap: 1rem !important;
+            }
+
+            .container {
+                padding: 0 0.5rem;
+            }
+
+            body {
+                padding: 0.5rem;
+            }
+        }
+
+        /* Responsive layout for mobile devices */
+        @media (max-width: 768px) {
+            .header h1 {
+                font-size: 2rem;
+            }
+
+            .flash-counter-section {
+                padding: 1.5rem;
             }
         }
 
@@ -424,17 +444,11 @@
 <body>
     <div class="container">
         <div class="header">
-            <h1>Pierre ESP32 Flasher</h1>
-            <p>Live Device Status Monitor</p>
-        </div>
-
-        <div class="connection-status" id="connectionStatus">
-            <span class="status-indicator status-offline"></span>
-            <span id="connectionText">Connecting to HiveMQ...</span>
+            <h1>Pierre Flasher</h1>
         </div>
 
         <!-- Two Column Layout for Devices -->
-        <div class="two-column-layout" style="display: grid; grid-template-columns: 1fr 1fr; gap: 2rem; margin-top: 2rem;">
+        <div class="two-column-layout" style="display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem; margin-top: 2rem; margin-bottom: 2rem;">
             <!-- Left Column: All-Time Device List -->
             <div class="flash-counter-section" style="margin-top: 0;">
                 <h2 class="flash-counter-title">📱 All-Time Connected Devices</h2>
@@ -471,23 +485,19 @@
             </div>
         </div>
 
-        <div class="refresh-info">
-            <p>Real-time monitoring via HiveMQ Cloud</p>
-        </div>
-
         <div class="chart-section">
             <div class="chart-header">
                 <h2 class="chart-title">Device Count (Last 24 Hours)</h2>
                 <button id="resetChart" class="reset-btn">Reset Chart</button>
             </div>
             <div class="chart-container">
-                <canvas id="deviceChart" width="800" height="200"></canvas>
+                <canvas id="deviceChart"></canvas>
             </div>
         </div>
 
         <!-- Global Flash Counter -->
         <div class="flash-counter-section">
-            <h2 class="flash-counter-title">🔥 Global ESP32 Flash Counter</h2>
+            <h2 class="flash-counter-title">🔥 Pierre Flash Counter</h2>
             <div class="flash-counter-number" id="flashCounterNumber">0</div>
             <p style="color: #888; margin-top: 0.5rem;">Total ESP32 devices flashed worldwide</p>
 
@@ -505,6 +515,17 @@
                 <div class="no-flash-events" id="noFlashEvents">
                     <p>No flash events yet today</p>
                 </div>
+            </div>
+        </div>
+
+        <!-- Footer with connection status and info -->
+        <div style="margin-top: 3rem; padding-top: 2rem; border-top: 1px solid #333;">
+            <div class="connection-status" id="connectionStatus" style="margin-bottom: 1rem;">
+                <span class="status-indicator status-offline"></span>
+                <span id="connectionText">Connecting to HiveMQ...</span>
+            </div>
+            <div style="text-align: center; color: #666; font-size: 0.9rem;">
+                <p>Real-time monitoring via HiveMQ Cloud • MQTT Protocol • Updates every 5 seconds</p>
             </div>
         </div>
     </div>
